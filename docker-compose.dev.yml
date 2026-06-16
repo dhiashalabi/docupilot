@@ -1,0 +1,143 @@
+# DocuPilot - development stack.
+# Usage: docker compose -f docker-compose.dev.yml up
+#
+# Frontend (:3000) and FastAPI backend (:8000) run as separate services with
+# hot reload. Source is mounted from the host.
+
+name: docupilot-dev
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-docupilot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-docupilot}
+      POSTGRES_DB: ${POSTGRES_DB:-docupilot}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-docupilot}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  vllm:
+    image: vllm/vllm-openai:latest
+    command: >
+      --model ${LLM_MODEL:-Qwen/Qwen3-14B-AWQ}
+      --quantization awq
+      --max-model-len ${LLM_CONTEXT_WINDOW:-32768}
+      --gpu-memory-utilization 0.90
+      --port 8001
+    ports:
+      - "8001:8001"
+    volumes:
+      - hf_cache:/root/.cache/huggingface
+    environment:
+      HUGGING_FACE_HUB_TOKEN: ${HUGGING_FACE_HUB_TOKEN:-}
+      HF_HUB_ENABLE_HF_TRANSFER: "1"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'python -c "import urllib.request;urllib.request.urlopen(''http://localhost:8001/health'')"',
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 600s
+
+  backend:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.backend
+    entrypoint: ["bash", "/app/infrastructure/docker/dev-backend-entrypoint.sh"]
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-docupilot}:${POSTGRES_PASSWORD:-docupilot}@db:5432/${POSTGRES_DB:-docupilot}
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      VLLM_BASE_URL: http://vllm:8001/v1
+      LLM_MODEL: ${LLM_MODEL:-Qwen/Qwen3-14B-AWQ}
+      STORAGE_PATH: /data/storage
+      EMBEDDING_USE_FP16: "false"
+      HF_HOME: /models
+      DEBUG: "true"
+    volumes:
+      - ./apps/backend:/app/apps/backend
+      - ./infrastructure:/app/infrastructure
+      - storage:/data/storage
+      - hf_cache:/models
+      - backend_venv:/app/apps/backend/.venv
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.frontend
+      target: build
+    entrypoint:
+      ["bash", "/app/infrastructure/docker/dev-frontend-entrypoint.sh"]
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    volumes:
+      - ./apps/frontend:/app/apps/frontend
+      - ./infrastructure:/app/infrastructure
+      - frontend_node_modules:/app/apps/frontend/node_modules
+    depends_on:
+      - backend
+
+  worker:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.worker
+    command: celery -A app.workers.celery_app.celery_app worker --loglevel=info --concurrency=1
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-docupilot}:${POSTGRES_PASSWORD:-docupilot}@db:5432/${POSTGRES_DB:-docupilot}
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      STORAGE_PATH: /data/storage
+      EMBEDDING_USE_FP16: "false"
+      HF_HOME: /models
+    volumes:
+      - ./apps/backend:/app/apps/backend
+      - storage:/data/storage
+      - hf_cache:/models
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  pg_data:
+  hf_cache:
+  storage:
+  backend_venv:
+  frontend_node_modules:

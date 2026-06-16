@@ -1,0 +1,35 @@
+# DocuPilot backend image: FastAPI + RAG + WeasyPrint + in-process BGE-M3.
+FROM python:3.12-slim AS runtime
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    HF_HOME=/models
+
+# WeasyPrint native libs + multilingual fonts (incl. Arabic) for PDF output.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl ca-certificates \
+    libpango-1.0-0 libpangocairo-1.0-0 libcairo2 libgdk-pixbuf-2.0-0 \
+    libffi-dev shared-mime-info fonts-noto fonts-noto-cjk \
+    && rm -rf /var/lib/apt/lists/*
+
+# Python dependency manager.
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+WORKDIR /app/apps/backend
+
+# Backend dependencies (cached layer).
+COPY apps/backend/pyproject.toml apps/backend/uv.lock* ./
+RUN uv sync --no-install-project
+
+# Backend source.
+COPY apps/backend/ ./
+
+ENV PATH="/app/apps/backend/.venv/bin:$PATH"
+
+COPY infrastructure/docker/backend-entrypoint.sh /backend-entrypoint.sh
+RUN chmod +x /backend-entrypoint.sh
+
+EXPOSE 8000
+ENTRYPOINT ["/backend-entrypoint.sh"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

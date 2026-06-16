@@ -1,0 +1,64 @@
+# ---- Python (backend) ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+.python-version.local
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# ---- Node / Next.js (frontend) ----
+node_modules/
+.pnp
+.pnp.*
+.next/
+out/
+.turbo/
+*.tsbuildinfo
+next-env.d.ts
+
+# ---- Environment / secrets ----
+.env
+.env.*
+!.env.example
+
+# ---- Local data / runtime ----
+storage/
+data/
+*.sqlite
+*.sqlite3
+*.db
+
+# ---- Model / HF caches (if mounted to host paths) ----
+models/
+hf_cache/
+.cache/
+
+# ---- Logs ----
+*.log
+logs/
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- Editors / IDE ----
+.idea/
+.vscode/
+*.swp
+*.swo
+*~

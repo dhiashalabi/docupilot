@@ -1,0 +1,27 @@
+# DocuPilot Celery worker image: PDF parsing + BGE-M3 embeddings.
+FROM python:3.12-slim AS runtime
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    HF_HOME=/models
+
+# System deps: Docling/PyMuPDF runtime + OCR + image libs.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl ca-certificates \
+    libgl1 libglib2.0-0 tesseract-ocr poppler-utils \
+    fonts-noto fonts-noto-cjk \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+WORKDIR /app/apps/backend
+
+COPY apps/backend/pyproject.toml apps/backend/uv.lock* ./
+RUN uv sync --no-install-project
+
+COPY apps/backend/ ./
+
+ENV PATH="/app/apps/backend/.venv/bin:$PATH"
+
+CMD ["celery", "-A", "app.workers.celery_app.celery_app", "worker", "--loglevel=info", "--concurrency=1"]
