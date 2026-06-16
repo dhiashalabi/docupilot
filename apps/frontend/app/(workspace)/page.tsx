@@ -1,9 +1,8 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import {
   SquarePenIcon,
   MessageSquareTextIcon,
@@ -17,6 +16,8 @@ import {
 import { api } from "@/lib/api";
 import { useChats } from "@/lib/hooks";
 import type { ChatRead } from "@/lib/types";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -40,31 +41,32 @@ import {
 } from "@/components/ui/alert-dialog";
 import { relativeTime } from "@/lib/utils";
 
-const FEATURES = [
-  {
-    icon: MessageSquareTextIcon,
-    label: "Chat with PDFs",
-    desc: "Ask questions about your documents",
-  },
-  {
-    icon: SearchIcon,
-    label: "Semantic Search",
-    desc: "Find relevant content instantly",
-  },
-  {
-    icon: SparklesIcon,
-    label: "Generate PDFs",
-    desc: "Create documents from AI content",
-  },
-];
-
 export default function ChatsHomePage() {
   const router = useRouter();
+  const t = useTranslations();
   const chats = useChats();
   const [creating, setCreating] = React.useState(false);
   const [pendingDelete, setPendingDelete] = React.useState<ChatRead | null>(
-    null,
+    null
   );
+
+  const features = [
+    {
+      icon: MessageSquareTextIcon,
+      label: t("home.featureChatLabel"),
+      desc: t("home.featureChatDesc"),
+    },
+    {
+      icon: SearchIcon,
+      label: t("home.featureSearchLabel"),
+      desc: t("home.featureSearchDesc"),
+    },
+    {
+      icon: SparklesIcon,
+      label: t("home.featureGenerateLabel"),
+      desc: t("home.featureGenerateDesc"),
+    },
+  ];
 
   const createChat = async () => {
     setCreating(true);
@@ -72,7 +74,9 @@ export default function ChatsHomePage() {
       const chat = await api.createChat({ title: null, document_ids: [] });
       router.push(`/chat/${chat.id}`);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not create chat");
+      toast.error(
+        e instanceof Error ? e.message : t("errors.createChatFailed")
+      );
       setCreating(false);
     }
   };
@@ -85,7 +89,7 @@ export default function ChatsHomePage() {
       await api.deleteChat(chat.id);
       await chats.refresh();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Delete failed");
+      toast.error(e instanceof Error ? e.message : t("errors.deleteFailed"));
     }
   };
 
@@ -112,7 +116,6 @@ export default function ChatsHomePage() {
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      {/* ── Empty state / Hero ── */}
       {!hasChats && (
         <div className="flex flex-1 items-center justify-center px-4">
           <Empty className="max-w-xl border-none">
@@ -123,10 +126,11 @@ export default function ChatsHomePage() {
               >
                 <BotIcon className="text-primary size-8" />
               </EmptyMedia>
-              <EmptyTitle className="text-2xl">Welcome to DocuPilot</EmptyTitle>
+              <EmptyTitle className="text-2xl">
+                {t("home.welcomeTitle")}
+              </EmptyTitle>
               <EmptyDescription className="max-w-md">
-                Upload documents and start asking questions. Get AI-powered
-                answers with source citations across multiple languages.
+                {t("home.welcomeDescription")}
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
@@ -138,17 +142,17 @@ export default function ChatsHomePage() {
                   className="gap-2"
                 >
                   <SquarePenIcon className="size-4" />
-                  Start a new chat
+                  {t("home.startNewChat")}
                 </Button>
                 <Button variant="outline" size="lg" className="gap-2" asChild>
                   <Link href="/documents">
                     <FileTextIcon className="size-4" />
-                    Upload documents
+                    {t("home.uploadDocuments")}
                   </Link>
                 </Button>
               </div>
               <div className="mt-4 grid w-full grid-cols-3 gap-3">
-                {FEATURES.map((card) => (
+                {features.map((card) => (
                   <Card
                     key={card.label}
                     className="items-center gap-2 p-4 text-center"
@@ -168,15 +172,17 @@ export default function ChatsHomePage() {
         </div>
       )}
 
-      {/* ── Chat list ── */}
       {hasChats && (
         <div className="flex flex-1 flex-col overflow-hidden px-4 py-4 lg:px-6">
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <h1 className="text-lg font-semibold tracking-tight">Chats</h1>
+              <h1 className="text-lg font-semibold tracking-tight">
+                {t("nav.chats")}
+              </h1>
               <p className="text-muted-foreground text-xs">
-                {recentChats.length} conversation
-                {recentChats.length !== 1 ? "s" : ""}
+                {t("common.conversationCount", {
+                  count: recentChats.length,
+                })}
               </p>
             </div>
             <Button
@@ -186,7 +192,7 @@ export default function ChatsHomePage() {
               className="gap-1.5"
             >
               <SquarePenIcon className="size-3.5" />
-              New Chat
+              {t("nav.newChat")}
             </Button>
           </div>
           <div className="flex-1 overflow-y-auto">
@@ -201,12 +207,13 @@ export default function ChatsHomePage() {
                   </div>
                   <Link href={`/chat/${chat.id}`} className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">
-                      {chat.title || "Untitled chat"}
+                      {chat.title || t("common.untitledChat")}
                     </p>
                     <p className="text-muted-foreground text-xs">
-                      {chat.document_ids.length} document
-                      {chat.document_ids.length !== 1 ? "s" : ""} ·{" "}
-                      {relativeTime(chat.updated_at)}
+                      {t("common.documentCount", {
+                        count: chat.document_ids.length,
+                      })}{" "}
+                      · {relativeTime(chat.updated_at)}
                     </p>
                   </Link>
                   <Button
@@ -214,7 +221,7 @@ export default function ChatsHomePage() {
                     size="icon"
                     className="text-muted-foreground hover:text-destructive size-7 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
                     onClick={() => setPendingDelete(chat)}
-                    aria-label="Delete chat"
+                    aria-label={t("home.deleteChatAria")}
                   >
                     <Trash2Icon className="size-3.5" />
                   </Button>
@@ -231,22 +238,21 @@ export default function ChatsHomePage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete chat?</AlertDialogTitle>
+            <AlertDialogTitle>{t("home.deleteChatTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently deletes{" "}
-              <span className="font-medium">
-                {pendingDelete?.title || "this conversation"}
-              </span>{" "}
-              and all of its messages. This action cannot be undone.
+              {t("home.deleteChatDescription", {
+                title:
+                  pendingDelete?.title || t("common.thisConversation"),
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => void confirmDelete()}
               className="bg-destructive text-white hover:bg-destructive/90"
             >
-              Delete
+              {t("common.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

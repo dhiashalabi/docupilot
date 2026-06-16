@@ -2,7 +2,7 @@ DEV  := docker compose -f docker-compose.dev.yml
 PROD := docker compose -f docker-compose.prod.yml
 
 .PHONY: help up down logs build migrate makemigration shell-backend shell-db \
-        worker-logs lint prod-up prod-down prod-build clean
+        worker-logs lint prod-up prod-down prod-build clean ollama-tunnel
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -34,6 +34,9 @@ shell-backend: ## Open a shell in the backend container
 
 shell-db: ## Open a psql shell
 	$(DEV) exec db psql -U docupilot -d docupilot
+
+ollama-tunnel: ## Start WSL SSH tunnel to Lightning Ollama (hybrid dev)
+	@bash scripts/lightning-ollama-tunnel.sh start
 
 lint: ## Lint backend (ruff) and frontend (eslint)
 	$(DEV) exec backend bash -c "cd /app/apps/backend && .venv/bin/ruff check ."

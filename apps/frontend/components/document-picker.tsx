@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import { FileTextIcon } from "lucide-react";
 
 import type { DocumentRead } from "@/lib/types";
@@ -15,8 +16,9 @@ interface Props {
   onChange: (ids: string[]) => void;
 }
 
-/** A compact multi-select list of READY documents. */
 export function DocumentPicker({ documents, selected, onChange }: Props) {
+  const t = useTranslations("documentPicker");
+  const tc = useTranslations("common");
   const ready = documents.filter((d) => d.status === "READY");
 
   const toggle = (id: string) => {
@@ -33,11 +35,7 @@ export function DocumentPicker({ documents, selected, onChange }: Props) {
   const clear = () => onChange([]);
 
   if (!ready.length) {
-    return (
-      <p className="text-muted-foreground text-xs">
-        No processed documents yet. Upload and wait for processing to finish.
-      </p>
-    );
+    return <p className="text-muted-foreground text-xs">{t("empty")}</p>;
   }
 
   return (
@@ -45,11 +43,11 @@ export function DocumentPicker({ documents, selected, onChange }: Props) {
       <div className="bg-muted/40 flex items-center justify-between gap-2 border-b px-2.5 py-1.5">
         <div className="flex items-center gap-2">
           <span className="text-muted-foreground text-xs font-medium">
-            {ready.length} document{ready.length !== 1 ? "s" : ""}
+            {tc("documentCount", { count: ready.length })}
           </span>
           {selected.length > 0 && (
             <Badge variant="secondary" className="h-5 px-1.5 text-[11px]">
-              {selected.length} selected
+              {tc("selectedCount", { count: selected.length })}
             </Badge>
           )}
         </div>
@@ -62,7 +60,7 @@ export function DocumentPicker({ documents, selected, onChange }: Props) {
             onClick={selectAll}
             disabled={allSelected}
           >
-            Select all
+            {t("selectAll")}
           </Button>
           <Button
             type="button"
@@ -72,7 +70,7 @@ export function DocumentPicker({ documents, selected, onChange }: Props) {
             onClick={clear}
             disabled={selected.length === 0}
           >
-            Clear
+            {tc("clear")}
           </Button>
         </div>
       </div>
@@ -82,7 +80,7 @@ export function DocumentPicker({ documents, selected, onChange }: Props) {
             const active = selected.includes(doc.id);
             return (
               <li key={doc.id}>
-                <label className="hover:bg-accent/50 flex w-full cursor-pointer items-center gap-2.5 px-2.5 py-2 text-left transition-colors">
+                <label className="hover:bg-accent/50 flex w-full cursor-pointer items-center gap-2.5 px-2.5 py-2 text-start transition-colors">
                   <Checkbox
                     checked={active}
                     onCheckedChange={() => toggle(doc.id)}

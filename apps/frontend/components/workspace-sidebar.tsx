@@ -1,9 +1,10 @@
 "use client";
 
 import * as React from "react";
+import { toast } from "sonner";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import {
   FilesIcon,
   MessageSquareTextIcon,
@@ -20,10 +21,10 @@ import {
 import { api } from "@/lib/api";
 import { useChats } from "@/lib/hooks";
 import type { ChatRead } from "@/lib/types";
+import { useDirection } from "@/components/ui/direction";
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -52,32 +53,37 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const mainNav = [
-  { title: "Chats", url: "/", icon: MessageSquareTextIcon },
-  { title: "Documents", url: "/documents", icon: FilesIcon },
-  { title: "Search", url: "/search", icon: SearchIcon },
-  { title: "Generate", url: "/generate", icon: FileOutputIcon },
-];
-
-const secondaryNav = [
-  { title: "Help", url: "#", icon: CircleHelpIcon },
-  { title: "Settings", url: "#", icon: Settings2Icon },
-];
-
 export function WorkspaceSidebar({
   ...props
 }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname();
   const router = useRouter();
+  const direction = useDirection();
+  const isRtl = direction === "rtl";
+  const t = useTranslations();
   const chats = useChats();
   const [pendingDelete, setPendingDelete] = React.useState<ChatRead | null>(null);
+
+  const mainNav = [
+    { title: t("nav.chats"), url: "/", icon: MessageSquareTextIcon },
+    { title: t("nav.documents"), url: "/documents", icon: FilesIcon },
+    { title: t("nav.search"), url: "/search", icon: SearchIcon },
+    { title: t("nav.generate"), url: "/generate", icon: FileOutputIcon },
+  ];
+
+  const secondaryNav = [
+    { title: t("nav.help"), url: "#", icon: CircleHelpIcon },
+    { title: t("nav.settings"), url: "#", icon: Settings2Icon },
+  ];
 
   const createChat = async () => {
     try {
       const chat = await api.createChat({ title: null, document_ids: [] });
       router.push(`/chat/${chat.id}`);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not create chat");
+      toast.error(
+        e instanceof Error ? e.message : t("errors.createChatFailed")
+      );
     }
   };
 
@@ -92,7 +98,7 @@ export function WorkspaceSidebar({
         router.push("/");
       }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Delete failed");
+      toast.error(e instanceof Error ? e.message : t("errors.deleteFailed"));
     }
   };
 
@@ -101,7 +107,6 @@ export function WorkspaceSidebar({
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
-      {/* ── Brand header ── */}
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
@@ -111,7 +116,9 @@ export function WorkspaceSidebar({
             >
               <Link href="/">
                 <BotIcon className="!size-5" />
-                <span className="text-base font-semibold">DocuPilot</span>
+                <span className="text-base font-semibold">
+                  {t("common.appName")}
+                </span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -119,18 +126,17 @@ export function WorkspaceSidebar({
       </SidebarHeader>
 
       <SidebarContent>
-        {/* ── New Chat + Main nav ── */}
         <SidebarGroup>
           <SidebarGroupContent className="flex flex-col gap-2">
             <SidebarMenu>
               <SidebarMenuItem className="flex items-center gap-2">
                 <SidebarMenuButton
-                  tooltip="New Chat"
+                  tooltip={t("nav.newChat")}
                   onClick={() => void createChat()}
                   className="min-w-8 bg-primary text-primary-foreground duration-200 ease-linear hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground"
                 >
                   <SquarePenIcon />
-                  <span>New Chat</span>
+                  <span>{t("nav.newChat")}</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
@@ -141,7 +147,7 @@ export function WorkspaceSidebar({
                     ? pathname === "/"
                     : pathname.startsWith(item.url);
                 return (
-                  <SidebarMenuItem key={item.title}>
+                  <SidebarMenuItem key={item.url}>
                     <SidebarMenuButton
                       asChild
                       isActive={active}
@@ -159,10 +165,9 @@ export function WorkspaceSidebar({
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* ── Recent chats ── */}
         {loading && (
           <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-            <SidebarGroupLabel>Recent Chats</SidebarGroupLabel>
+            <SidebarGroupLabel>{t("nav.recentChats")}</SidebarGroupLabel>
             <SidebarMenu>
               {[0, 1, 2, 3].map((i) => (
                 <SidebarMenuItem key={i} className="px-2 py-1.5">
@@ -174,7 +179,7 @@ export function WorkspaceSidebar({
         )}
         {!loading && recentChats.length > 0 && (
           <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-            <SidebarGroupLabel>Recent Chats</SidebarGroupLabel>
+            <SidebarGroupLabel>{t("nav.recentChats")}</SidebarGroupLabel>
             <SidebarMenu>
               {recentChats.map((chat: ChatRead) => {
                 const active = pathname === `/chat/${chat.id}`;
@@ -184,7 +189,7 @@ export function WorkspaceSidebar({
                       <Link href={`/chat/${chat.id}`}>
                         <MessageSquareTextIcon />
                         <span className="truncate">
-                          {chat.title || "Untitled chat"}
+                          {chat.title || t("common.untitledChat")}
                         </span>
                       </Link>
                     </SidebarMenuButton>
@@ -195,18 +200,18 @@ export function WorkspaceSidebar({
                           className="rounded-sm data-[state=open]:bg-accent"
                         >
                           <MoreHorizontalIcon />
-                          <span className="sr-only">More</span>
+                          <span className="sr-only">{t("common.more")}</span>
                         </SidebarMenuAction>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent
                         className="w-32 rounded-lg"
-                        side="right"
+                        side={isRtl ? "left" : "right"}
                         align="start"
                       >
                         <DropdownMenuItem asChild>
                           <Link href={`/chat/${chat.id}`}>
                             <MessageSquareTextIcon />
-                            <span>Open</span>
+                            <span>{t("common.open")}</span>
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
@@ -215,7 +220,7 @@ export function WorkspaceSidebar({
                           onClick={() => setPendingDelete(chat)}
                         >
                           <Trash2Icon />
-                          <span>Delete</span>
+                          <span>{t("common.delete")}</span>
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -227,7 +232,7 @@ export function WorkspaceSidebar({
                   <SidebarMenuButton asChild className="text-sidebar-foreground/70">
                     <Link href="/">
                       <MoreHorizontalIcon className="text-sidebar-foreground/70" />
-                      <span>View all</span>
+                      <span>{t("nav.viewAll")}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -236,7 +241,6 @@ export function WorkspaceSidebar({
           </SidebarGroup>
         )}
 
-        {/* ── Secondary nav ── */}
         <SidebarGroup className="mt-auto">
           <SidebarGroupContent>
             <SidebarMenu>
@@ -261,22 +265,21 @@ export function WorkspaceSidebar({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete chat?</AlertDialogTitle>
+            <AlertDialogTitle>{t("home.deleteChatTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently deletes{" "}
-              <span className="font-medium">
-                {pendingDelete?.title || "this conversation"}
-              </span>{" "}
-              and all of its messages. This action cannot be undone.
+              {t("home.deleteChatDescription", {
+                title:
+                  pendingDelete?.title || t("common.thisConversation"),
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => void confirmDelete()}
               className="bg-destructive text-white hover:bg-destructive/90"
             >
-              Delete
+              {t("common.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

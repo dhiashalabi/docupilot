@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import {
   SearchIcon,
   Loader2Icon,
@@ -37,13 +38,10 @@ import {
 import { PageHeader } from "@/components/page-header";
 import { cn } from "@/lib/utils";
 
-const SUGGESTIONS = [
-  "Key findings and conclusions",
-  "Financial data and metrics",
-  "Project timeline and milestones",
-];
-
 export default function SearchPage() {
+  const t = useTranslations("search");
+  const tc = useTranslations("common");
+  const te = useTranslations("errors");
   const docs = useDocuments();
   const [query, setQuery] = React.useState("");
   const [selected, setSelected] = React.useState<string[]>([]);
@@ -51,6 +49,12 @@ export default function SearchPage() {
   const [loading, setLoading] = React.useState(false);
   const [showFilters, setShowFilters] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
+
+  const suggestions = [
+    t("suggestion1"),
+    t("suggestion2"),
+    t("suggestion3"),
+  ];
 
   const run = async () => {
     if (!query.trim()) return;
@@ -62,7 +66,7 @@ export default function SearchPage() {
       });
       setHits(results);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Search failed");
+      toast.error(e instanceof Error ? e.message : te("searchFailed"));
     } finally {
       setLoading(false);
     }
@@ -72,11 +76,10 @@ export default function SearchPage() {
     <div className="flex flex-1 flex-col overflow-hidden px-4 py-5 lg:px-6">
       <PageHeader
         className="mb-5"
-        title="Search"
-        description="Find relevant content across all your documents with semantic search."
+        title={t("title")}
+        description={t("description")}
       />
 
-      {/* ── Search bar ── */}
       <div className="mb-4 space-y-3">
         <InputGroup className="h-12 rounded-xl shadow-sm">
           <InputGroupAddon>
@@ -84,7 +87,7 @@ export default function SearchPage() {
           </InputGroupAddon>
           <InputGroupInput
             ref={inputRef}
-            placeholder="Search across your documents…"
+            placeholder={t("placeholder")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && void run()}
@@ -95,7 +98,7 @@ export default function SearchPage() {
               size="icon-sm"
               variant={showFilters ? "secondary" : "ghost"}
               onClick={() => setShowFilters(!showFilters)}
-              aria-label="Toggle filters"
+              aria-label={t("toggleFilters")}
             >
               <FilterIcon />
             </InputGroupButton>
@@ -111,17 +114,16 @@ export default function SearchPage() {
               ) : (
                 <SearchIcon className="size-3.5" />
               )}
-              Search
+              {t("searchButton")}
             </InputGroupButton>
           </InputGroupAddon>
         </InputGroup>
 
-        {/* Filter panel */}
         {showFilters && (
           <Card className="animate-in fade-in slide-in-from-top-1 gap-3 p-3.5 duration-200">
             <div className="flex items-center justify-between">
               <p className="text-muted-foreground text-xs font-medium">
-                Filter by document
+                {t("filterByDocument")}
               </p>
               {selected.length > 0 && (
                 <button
@@ -129,7 +131,7 @@ export default function SearchPage() {
                   className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs transition-colors"
                 >
                   <XIcon className="size-3" />
-                  Clear
+                  {tc("clear")}
                 </button>
               )}
             </div>
@@ -141,25 +143,25 @@ export default function SearchPage() {
           </Card>
         )}
 
-        {/* Active filters */}
         {selected.length > 0 && !showFilters && (
           <div className="flex items-center gap-2">
-            <span className="text-muted-foreground text-xs">Filtering:</span>
+            <span className="text-muted-foreground text-xs">
+              {t("filtering")}
+            </span>
             <Badge variant="secondary" className="gap-1 text-xs">
               <FilterIcon className="size-3" />
-              {selected.length} document{selected.length !== 1 ? "s" : ""}
+              {tc("documentCount", { count: selected.length })}
             </Badge>
             <button
               onClick={() => setSelected([])}
               className="text-muted-foreground hover:text-foreground text-xs transition-colors"
             >
-              Clear
+              {tc("clear")}
             </button>
           </div>
         )}
       </div>
 
-      {/* ── Results ── */}
       <div className="flex-1 overflow-y-auto">
         {loading ? (
           <div className="space-y-2">
@@ -180,15 +182,12 @@ export default function SearchPage() {
               <EmptyMedia variant="icon">
                 <SparklesIcon />
               </EmptyMedia>
-              <EmptyTitle>Semantic search</EmptyTitle>
-              <EmptyDescription>
-                Type a question or description above. The AI will find the most
-                relevant passages in your documents.
-              </EmptyDescription>
+              <EmptyTitle>{t("emptyTitle")}</EmptyTitle>
+              <EmptyDescription>{t("emptyDescription")}</EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
               <div className="flex flex-wrap justify-center gap-2">
-                {SUGGESTIONS.map((suggestion) => (
+                {suggestions.map((suggestion) => (
                   <Badge
                     key={suggestion}
                     variant="outline"
@@ -210,17 +209,15 @@ export default function SearchPage() {
               <EmptyMedia variant="icon">
                 <SearchIcon />
               </EmptyMedia>
-              <EmptyTitle>No matches found</EmptyTitle>
-              <EmptyDescription>
-                Try rephrasing your query or adjusting the filters.
-              </EmptyDescription>
+              <EmptyTitle>{t("noMatchesTitle")}</EmptyTitle>
+              <EmptyDescription>{t("noMatchesDescription")}</EmptyDescription>
             </EmptyHeader>
           </Empty>
         ) : (
           <div className="space-y-2">
             <div className="mb-3">
               <Badge variant="secondary" className="text-xs">
-                {hits.length} result{hits.length !== 1 ? "s" : ""}
+                {tc("resultCount", { count: hits.length })}
               </Badge>
             </div>
             {hits.map((hit) => (
@@ -240,7 +237,7 @@ export default function SearchPage() {
                       variant="outline"
                       className="shrink-0 text-[11px] font-normal"
                     >
-                      Page {hit.page_from}
+                      {tc("page", { page: hit.page_from })}
                     </Badge>
                   )}
                   <div className="flex shrink-0 items-center gap-1.5">

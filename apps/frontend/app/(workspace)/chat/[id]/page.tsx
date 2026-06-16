@@ -3,6 +3,7 @@
 import * as React from "react";
 import { use } from "react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { SendIcon, Loader2Icon, FileTextIcon, BotIcon, UserIcon } from "lucide-react";
 
 import { streamMessage } from "@/lib/api";
@@ -22,19 +23,22 @@ interface StreamingState {
   citations: Array<{ n: number; filename: string; page_from: number | null }>;
 }
 
-/* ── Citation pills ── */
 function CitationList({
   citations,
 }: {
   citations: MessageRead["citations"] | StreamingState["citations"];
 }) {
+  const t = useTranslations("common");
+
   if (!citations.length) return null;
   return (
     <div className="mt-2.5 flex flex-wrap gap-1.5">
       {citations.map((c, i) => {
         const page = "page_from" in c ? c.page_from : null;
         const label =
-          "filename" in c && c.filename ? c.filename : `Source ${i + 1}`;
+          "filename" in c && c.filename
+            ? c.filename
+            : t("sourceN", { n: i + 1 });
         return (
           <Badge
             key={i}
@@ -51,7 +55,6 @@ function CitationList({
   );
 }
 
-/* ── Message bubble ── */
 function Bubble({
   role,
   children,
@@ -94,7 +97,6 @@ function Bubble({
   );
 }
 
-/* ── Typing indicator ── */
 function TypingIndicator() {
   return (
     <div className="flex items-center gap-1 px-1 py-1">
@@ -115,6 +117,8 @@ export default function ChatPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const t = useTranslations("chat");
+  const te = useTranslations("errors");
   const chat = useChat(id);
   const messages = useMessages(id);
   const health = useSystemHealth();
@@ -182,7 +186,7 @@ export default function ChatPage({
       });
       await messages.refresh();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to send message");
+      toast.error(e instanceof Error ? e.message : te("sendMessageFailed"));
     } finally {
       setStreaming(null);
       setBusy(false);
@@ -192,35 +196,31 @@ export default function ChatPage({
 
   const initialLoading = messages.loading && !messages.data;
   const hasMessages = (messages.data?.length ?? 0) > 0 || streaming;
+  const docCount = chat.data?.document_ids.length ?? 0;
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      {/* ── Chat header ── */}
       <div className="flex items-center gap-3 border-b px-4 py-2.5 lg:px-6">
         <div className="bg-muted flex size-7 items-center justify-center rounded-lg">
           <BotIcon className="text-muted-foreground size-3.5" />
         </div>
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-sm font-medium leading-tight">
-            {chat.data?.title || "New Chat"}
+            {chat.data?.title || t("newChat")}
           </h1>
           <p className="text-muted-foreground text-[11px]">
-            {chat.data?.document_ids.length ?? 0} document
-            {(chat.data?.document_ids.length ?? 0) !== 1 ? "s" : ""} in context
+            {t("documentsInContext", { count: docCount })}
           </p>
         </div>
       </div>
 
-      {/* ── Model loading notice ── */}
       {!llmReady && (
         <div className="bg-muted/40 text-muted-foreground flex items-center gap-2 border-b px-4 py-2 text-[11px] lg:px-6">
           <Loader2Icon className="size-3 animate-spin" />
-          The local model is still loading — answers may be unavailable until it is
-          ready.
+          {t("modelLoading")}
         </div>
       )}
 
-      {/* ── Messages area ── */}
       <ScrollArea className="flex-1" viewportRef={viewportRef}>
         <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 px-4 py-4 lg:px-6">
           {initialLoading ? (
@@ -246,10 +246,9 @@ export default function ChatPage({
                 <BotIcon className="text-primary size-6" />
               </div>
               <div className="text-center">
-                <p className="text-sm font-medium">How can I help you?</p>
+                <p className="text-sm font-medium">{t("emptyTitle")}</p>
                 <p className="text-muted-foreground mt-1 max-w-sm text-xs leading-relaxed">
-                  Ask questions about your documents. Answers include source
-                  citations for verification.
+                  {t("emptyDescription")}
                 </p>
               </div>
             </div>
@@ -270,7 +269,6 @@ export default function ChatPage({
         </div>
       </ScrollArea>
 
-      {/* ── Input area ── */}
       <div className="bg-background/80 border-t px-4 py-3 backdrop-blur-sm lg:px-6">
         <div className="mx-auto flex w-full max-w-2xl items-end gap-2">
           <div className="bg-muted/30 focus-within:border-ring focus-within:ring-ring/20 flex flex-1 items-end rounded-xl border transition-colors focus-within:ring-2">
@@ -284,7 +282,7 @@ export default function ChatPage({
                   void send();
                 }
               }}
-              placeholder="Ask anything about your documents…"
+              placeholder={t("inputPlaceholder")}
               rows={1}
               disabled={busy}
               className="max-h-[200px] min-h-[44px] resize-none border-0 bg-transparent px-3.5 py-3 text-sm leading-relaxed shadow-none focus-visible:ring-0 dark:bg-transparent"
@@ -299,15 +297,15 @@ export default function ChatPage({
             {busy ? (
               <Loader2Icon className="size-4 animate-spin" />
             ) : (
-              <SendIcon className="size-4" />
+              <SendIcon className="size-4 rtl:rotate-180" />
             )}
           </Button>
         </div>
         <p className="text-muted-foreground/60 mx-auto mt-1.5 flex max-w-2xl items-center justify-center gap-1.5 text-[10px]">
-          <Kbd>↵</Kbd> to send
+          <Kbd>↵</Kbd> {t("sendHint")}
           <span>·</span>
           <Kbd>⇧</Kbd>
-          <Kbd>↵</Kbd> for new line
+          <Kbd>↵</Kbd> {t("newLineHint")}
         </p>
       </div>
     </div>

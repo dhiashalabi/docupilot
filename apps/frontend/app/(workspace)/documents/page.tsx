@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import {
   Trash2Icon,
   UploadCloudIcon,
@@ -66,13 +67,6 @@ function formatDate(iso: string): string {
   });
 }
 
-const STATUS_LABEL: Record<DocumentRead["status"], string> = {
-  READY: "Ready",
-  PROCESSING: "Processing",
-  PENDING: "Queued",
-  FAILED: "Failed",
-};
-
 const STATUS_DOT: Record<DocumentRead["status"], "up" | "degraded" | "down"> = {
   READY: "up",
   PROCESSING: "degraded",
@@ -81,15 +75,22 @@ const STATUS_DOT: Record<DocumentRead["status"], "up" | "degraded" | "down"> = {
 };
 
 function StatusBadge({ status }: { status: DocumentRead["status"] }) {
+  const t = useTranslations("documents");
+  const labels: Record<DocumentRead["status"], string> = {
+    READY: t("statusReady"),
+    PROCESSING: t("statusProcessing"),
+    PENDING: t("statusPending"),
+    FAILED: t("statusFailed"),
+  };
+
   return (
     <Badge variant="outline" className="gap-1.5 font-medium">
       <StatusDot status={STATUS_DOT[status]} className="size-2" />
-      {STATUS_LABEL[status]}
+      {labels[status]}
     </Badge>
   );
 }
 
-/** Live ingestion progress bar, polled while the document is still processing. */
 function JobProgress({ documentId }: { documentId: string }) {
   const [job, setJob] = React.useState<ProcessingJob | null>(null);
 
@@ -131,6 +132,9 @@ function DocumentCard({
   onReingest: (doc: DocumentRead) => void;
   onDelete: (doc: DocumentRead) => void;
 }) {
+  const t = useTranslations("documents");
+  const tc = useTranslations("common");
+
   return (
     <Card className="flex-row items-center gap-3.5 px-4 py-3 transition-shadow hover:shadow-sm">
       <div className="bg-muted flex size-10 shrink-0 items-center justify-center rounded-lg">
@@ -144,7 +148,7 @@ function DocumentCard({
           {doc.page_count && (
             <>
               <span className="text-border">·</span>
-              <span>{doc.page_count} pages</span>
+              <span>{tc("pagesCount", { count: doc.page_count })}</span>
             </>
           )}
           {doc.language && (
@@ -172,7 +176,7 @@ function DocumentCard({
             variant="ghost"
             size="icon"
             className="text-muted-foreground size-8 shrink-0"
-            aria-label="Document actions"
+            aria-label={t("documentActions")}
           >
             <MoreVerticalIcon className="size-4" />
           </Button>
@@ -183,15 +187,12 @@ function DocumentCard({
             disabled={doc.status === "PROCESSING" || doc.status === "PENDING"}
           >
             <RefreshCwIcon className="size-4" />
-            Re-ingest
+            {t("reingest")}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem
-            variant="destructive"
-            onClick={() => onDelete(doc)}
-          >
+          <DropdownMenuItem variant="destructive" onClick={() => onDelete(doc)}>
             <Trash2Icon className="size-4" />
-            Delete
+            {tc("delete")}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -200,6 +201,10 @@ function DocumentCard({
 }
 
 export default function DocumentsPage() {
+  const t = useTranslations("documents");
+  const tc = useTranslations("common");
+  const te = useTranslations("errors");
+  const tt = useTranslations("toasts");
   const { data, loading, error, refresh } = useDocuments(3000);
   const [uploading, setUploading] = React.useState(false);
   const [dragOver, setDragOver] = React.useState(false);
@@ -213,29 +218,29 @@ export default function DocumentsPage() {
       try {
         for (const file of Array.from(files)) {
           if (file.type !== "application/pdf") {
-            toast.error(`${file.name} is not a PDF`);
+            toast.error(te("notPdf", { filename: file.name }));
             continue;
           }
           await api.uploadDocument(file);
-          toast.success(`Uploaded ${file.name}`);
+          toast.success(tt("uploaded", { filename: file.name }));
         }
         await refresh();
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Upload failed");
+        toast.error(e instanceof Error ? e.message : te("uploadFailed"));
       } finally {
         setUploading(false);
       }
     },
-    [refresh]
+    [refresh, te, tt]
   );
 
   const reingest = async (doc: DocumentRead) => {
     try {
       await api.reingestDocument(doc.id);
-      toast.success(`Re-ingesting ${doc.filename}`);
+      toast.success(tt("reingesting", { filename: doc.filename }));
       await refresh();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Re-ingest failed");
+      toast.error(e instanceof Error ? e.message : te("reingestFailed"));
     }
   };
 
@@ -245,10 +250,10 @@ export default function DocumentsPage() {
     setPendingDelete(null);
     try {
       await api.deleteDocument(doc.id);
-      toast.success(`Deleted ${doc.filename}`);
+      toast.success(tt("deletedDocument", { filename: doc.filename }));
       await refresh();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Delete failed");
+      toast.error(e instanceof Error ? e.message : te("deleteFailed"));
     }
   };
 
@@ -258,25 +263,24 @@ export default function DocumentsPage() {
   return (
     <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-4 py-5 lg:px-6">
       <PageHeader
-        title="Documents"
-        description="Upload and manage your PDF documents for AI-powered analysis."
+        title={t("title")}
+        description={t("description")}
         actions={
           totalCount > 0 ? (
             <>
               <Badge variant="secondary" className="gap-1.5">
                 <FileIcon className="size-3.5" />
-                {totalCount} total
+                {t("totalBadge", { count: totalCount })}
               </Badge>
               <Badge variant="secondary" className="gap-1.5">
                 <CheckCircle2Icon className="size-3.5 text-emerald-500" />
-                {readyCount} ready
+                {t("readyBadge", { count: readyCount })}
               </Badge>
             </>
           ) : undefined
         }
       />
 
-      {/* ── Upload zone ── */}
       <div
         onDragOver={(e) => {
           e.preventDefault();
@@ -311,11 +315,9 @@ export default function DocumentsPage() {
           </div>
           <div className="text-center">
             <p className="text-sm font-medium">
-              {dragOver ? "Drop your PDFs here" : "Drag & drop your PDF files"}
+              {dragOver ? t("dropHere") : t("dragDrop")}
             </p>
-            <p className="text-muted-foreground mt-1 text-xs">
-              or click below to browse · supports multiple files
-            </p>
+            <p className="text-muted-foreground mt-1 text-xs">{t("browseHint")}</p>
           </div>
           <input
             ref={inputRef}
@@ -336,12 +338,11 @@ export default function DocumentsPage() {
             ) : (
               <UploadCloudIcon className="size-4" />
             )}
-            Browse files
+            {t("browseFiles")}
           </Button>
         </div>
       </div>
 
-      {/* ── Document list ── */}
       {loading && !data ? (
         <div className="grid gap-2">
           {[0, 1, 2].map((i) => (
@@ -361,12 +362,12 @@ export default function DocumentsPage() {
             <EmptyMedia variant="icon">
               <AlertCircleIcon className="text-destructive" />
             </EmptyMedia>
-            <EmptyTitle>Couldn&apos;t load documents</EmptyTitle>
+            <EmptyTitle>{t("loadErrorTitle")}</EmptyTitle>
             <EmptyDescription>{error}</EmptyDescription>
           </EmptyHeader>
           <Button variant="outline" size="sm" onClick={() => void refresh()}>
             <RefreshCwIcon className="size-4" />
-            Retry
+            {tc("retry")}
           </Button>
         </Empty>
       ) : !data?.length ? (
@@ -375,10 +376,8 @@ export default function DocumentsPage() {
             <EmptyMedia variant="icon">
               <HardDriveIcon />
             </EmptyMedia>
-            <EmptyTitle>No documents yet</EmptyTitle>
-            <EmptyDescription>
-              Upload your first PDF above to get started.
-            </EmptyDescription>
+            <EmptyTitle>{t("emptyTitle")}</EmptyTitle>
+            <EmptyDescription>{t("emptyDescription")}</EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : (
@@ -400,20 +399,20 @@ export default function DocumentsPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete document?</AlertDialogTitle>
+            <AlertDialogTitle>{t("deleteTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently deletes{" "}
-              <span className="font-medium">{pendingDelete?.filename}</span> and its
-              extracted chunks. This action cannot be undone.
+              {t("deleteDescription", {
+                filename: pendingDelete?.filename ?? "",
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{tc("cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => void confirmDelete()}
               className="bg-destructive text-white hover:bg-destructive/90"
             >
-              Delete
+              {tc("delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

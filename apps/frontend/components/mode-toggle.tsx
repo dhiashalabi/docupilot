@@ -2,6 +2,7 @@
 
 import { MoonIcon, SunIcon } from "lucide-react";
 import { useTheme } from "next-themes";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -10,23 +11,20 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-function getThemeLabel(
-  theme: string | undefined,
-  resolvedTheme: string | undefined
-) {
-  if (theme === "system") {
-    if (resolvedTheme === "dark") return "System (dark)";
-    if (resolvedTheme === "light") return "System (light)";
-    return "System";
-  }
-  if (theme === "light") return "Light";
-  if (theme === "dark") return "Dark";
-  return "Toggle theme";
-}
-
 export function ModeToggle() {
   const { theme, resolvedTheme, setTheme } = useTheme();
-  const label = getThemeLabel(theme, resolvedTheme);
+  const t = useTranslations("theme");
+
+  let label = t("toggle");
+  if (theme === "system") {
+    if (resolvedTheme === "dark") label = t("systemDark");
+    else if (resolvedTheme === "light") label = t("systemLight");
+    else label = t("system");
+  } else if (theme === "light") {
+    label = t("light");
+  } else if (theme === "dark") {
+    label = t("dark");
+  }
 
   return (
     <Tooltip>

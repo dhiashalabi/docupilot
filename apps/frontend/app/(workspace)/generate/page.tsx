@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import {
   SparklesIcon,
   FileDownIcon,
@@ -36,6 +37,10 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export default function GeneratePage() {
+  const t = useTranslations("generate");
+  const tc = useTranslations("common");
+  const te = useTranslations("errors");
+  const tt = useTranslations("toasts");
   const docs = useDocuments();
   const [selected, setSelected] = React.useState<string[]>([]);
   const [instruction, setInstruction] = React.useState("");
@@ -51,7 +56,7 @@ export default function GeneratePage() {
 
   const summarize = async () => {
     if (!selected.length) {
-      toast.error("Select at least one document");
+      toast.error(t("selectDocument"));
       return;
     }
     setSummarizing(true);
@@ -61,11 +66,11 @@ export default function GeneratePage() {
         instruction: instruction.trim() || undefined,
       });
       setMarkdown(summary);
-      if (!title) setTitle("Document Summary");
-      toast.success("Summary generated successfully");
+      if (!title) setTitle(t("defaultSummaryTitle"));
+      toast.success(tt("summaryGenerated"));
       setActiveTab("export");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Summary failed");
+      toast.error(e instanceof Error ? e.message : te("summaryFailed"));
     } finally {
       setSummarizing(false);
     }
@@ -73,16 +78,16 @@ export default function GeneratePage() {
 
   const generate = async () => {
     if (!title.trim() || !markdown.trim()) {
-      toast.error("Title and content are required");
+      toast.error(t("titleContentRequired"));
       return;
     }
     setGenerating(true);
     try {
       const record = await api.generatePdf({ title: title.trim(), markdown });
-      toast.success("PDF generated");
+      toast.success(tt("pdfGenerated"));
       window.open(api.downloadPdfUrl(record.id), "_blank");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "PDF generation failed");
+      toast.error(e instanceof Error ? e.message : te("pdfGenerationFailed"));
     } finally {
       setGenerating(false);
     }
@@ -95,7 +100,7 @@ export default function GeneratePage() {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      toast.error("Couldn't copy to clipboard");
+      toast.error(te("copyFailed"));
     }
   };
 
@@ -103,19 +108,19 @@ export default function GeneratePage() {
     <div className="flex flex-1 flex-col overflow-y-auto px-4 py-5 lg:px-6">
       <PageHeader
         className="mb-5"
-        title="Generate"
-        description="Extract insights from your documents or build custom PDF reports."
+        title={t("title")}
+        description={t("description")}
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="mb-6 grid w-full max-w-md grid-cols-2">
           <TabsTrigger value="summarize" className="flex items-center gap-2">
             <Wand2Icon className="size-4" />
-            Summarize
+            {t("summarize")}
           </TabsTrigger>
           <TabsTrigger value="export" className="flex items-center gap-2">
             <FileOutputIcon className="size-4" />
-            Export
+            {t("export")}
           </TabsTrigger>
         </TabsList>
 
@@ -123,10 +128,8 @@ export default function GeneratePage() {
           <Card className="gap-6 p-5 sm:p-6">
             <FieldGroup className="gap-6">
               <Field>
-                <FieldLabel>Source documents</FieldLabel>
-                <FieldDescription>
-                  Select the PDFs you want to summarize.
-                </FieldDescription>
+                <FieldLabel>{t("sourceDocuments")}</FieldLabel>
+                <FieldDescription>{t("sourceDocumentsDesc")}</FieldDescription>
                 <DocumentPicker
                   documents={docs.data ?? []}
                   selected={selected}
@@ -135,13 +138,11 @@ export default function GeneratePage() {
               </Field>
 
               <Field>
-                <FieldLabel htmlFor="instruction">Instructions</FieldLabel>
-                <FieldDescription>
-                  Optional context on what to focus the summary on.
-                </FieldDescription>
+                <FieldLabel htmlFor="instruction">{t("instructions")}</FieldLabel>
+                <FieldDescription>{t("instructionsDesc")}</FieldDescription>
                 <Input
                   id="instruction"
-                  placeholder="e.g. 'Focus on financial metrics' (optional)"
+                  placeholder={t("instructionPlaceholder")}
                   value={instruction}
                   onChange={(e) => setInstruction(e.target.value)}
                 />
@@ -159,7 +160,7 @@ export default function GeneratePage() {
                 ) : (
                   <SparklesIcon className="size-4" />
                 )}
-                {summarizing ? "Generating summary…" : "Generate summary"}
+                {summarizing ? t("generatingSummary") : t("generateSummary")}
               </Button>
             </div>
           </Card>
@@ -168,10 +169,10 @@ export default function GeneratePage() {
         <TabsContent value="export" className="mt-0 flex flex-1 flex-col">
           <Card className="gap-5 p-5 sm:p-6">
             <Field>
-              <FieldLabel htmlFor="title">Title</FieldLabel>
+              <FieldLabel htmlFor="title">{t("titleLabel")}</FieldLabel>
               <Input
                 id="title"
-                placeholder="e.g. Q3 Financial Summary"
+                placeholder={t("titlePlaceholder")}
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
               />
@@ -179,7 +180,7 @@ export default function GeneratePage() {
 
             <Field>
               <div className="flex items-center justify-between gap-2">
-                <FieldLabel htmlFor="markdown">Content (Markdown)</FieldLabel>
+                <FieldLabel htmlFor="markdown">{t("contentLabel")}</FieldLabel>
                 <div className="flex items-center gap-1.5">
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -196,10 +197,12 @@ export default function GeneratePage() {
                         ) : (
                           <CopyIcon className="size-3.5" />
                         )}
-                        Copy
+                        {tc("copy")}
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent>Copy markdown to clipboard</TooltipContent>
+                    <TooltipContent>
+                      {t("copyTooltip")}
+                    </TooltipContent>
                   </Tooltip>
                   <ToggleGroup
                     type="single"
@@ -208,12 +211,16 @@ export default function GeneratePage() {
                     onValueChange={(v) => v && setView(v as "edit" | "preview")}
                     variant="outline"
                   >
-                    <ToggleGroupItem value="edit" aria-label="Edit" className="h-7 px-2">
+                    <ToggleGroupItem
+                      value="edit"
+                      aria-label={t("edit")}
+                      className="h-7 px-2"
+                    >
                       <PencilIcon className="size-3.5" />
                     </ToggleGroupItem>
                     <ToggleGroupItem
                       value="preview"
-                      aria-label="Preview"
+                      aria-label={t("preview")}
                       className="h-7 px-2"
                     >
                       <EyeIcon className="size-3.5" />
@@ -224,7 +231,7 @@ export default function GeneratePage() {
               {view === "edit" ? (
                 <Textarea
                   id="markdown"
-                  placeholder="Write your content here, or generate a summary first…"
+                  placeholder={t("contentPlaceholder")}
                   value={markdown}
                   onChange={(e) => setMarkdown(e.target.value)}
                   className="min-h-[350px] resize-y font-mono text-sm leading-relaxed"
@@ -237,7 +244,7 @@ export default function GeneratePage() {
                     </pre>
                   ) : (
                     <p className="text-muted-foreground text-sm">
-                      Nothing to preview yet.
+                      {t("nothingToPreview")}
                     </p>
                   )}
                 </div>
@@ -251,7 +258,7 @@ export default function GeneratePage() {
                 className="gap-2"
               >
                 {generating ? <Spinner /> : <FileDownIcon className="size-4" />}
-                {generating ? "Exporting…" : "Download PDF"}
+                {generating ? t("exporting") : t("downloadPdf")}
               </Button>
             </div>
           </Card>

@@ -1,12 +1,16 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Inter } from "next/font/google";
+import { Geist, Geist_Mono, Inter, Noto_Sans_Arabic } from "next/font/google";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getMessages, getTranslations } from "next-intl/server";
+
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { ThemeProvider } from "@/components/theme-provider";
+import { DirectionProvider } from "@/components/ui/direction";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 
-const inter = Inter({subsets:['latin'],variable:'--font-sans'});
+const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -18,21 +22,42 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "DocuPilot",
-  description: "Multilingual AI-powered PDF chat platform",
-};
+const notoSansArabic = Noto_Sans_Arabic({
+  subsets: ["arabic"],
+  variable: "--font-arabic",
+});
 
-export default function RootLayout({
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("metadata");
+
+  return {
+    title: t("title"),
+    description: t("description"),
+  };
+}
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getLocale();
+  const messages = await getMessages();
+  const dir = locale === "ar" ? "rtl" : "ltr";
+
   return (
     <html
-      lang="en"
+      lang={locale}
+      dir={dir}
       suppressHydrationWarning
-      className={cn("h-full", "antialiased", geistSans.variable, geistMono.variable, "font-sans", inter.variable)}
+      className={cn(
+        "h-full antialiased font-sans",
+        geistSans.variable,
+        geistMono.variable,
+        inter.variable,
+        notoSansArabic.variable,
+        locale === "ar" && "font-[family-name:var(--font-arabic)]"
+      )}
     >
       <body className="min-h-full flex flex-col">
         <ThemeProvider
@@ -41,8 +66,14 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <TooltipProvider delayDuration={0}>{children}</TooltipProvider>
-          <Toaster />
+          <DirectionProvider direction={dir}>
+            <NextIntlClientProvider locale={locale} messages={messages}>
+              <TooltipProvider delayDuration={0}>
+                {children}
+                <Toaster position={dir === "rtl" ? "top-left" : "top-right"} />
+              </TooltipProvider>
+            </NextIntlClientProvider>
+          </DirectionProvider>
         </ThemeProvider>
       </body>
     </html>

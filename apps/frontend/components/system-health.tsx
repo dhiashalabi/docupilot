@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import {
   RefreshCwIcon,
   CheckCircle2Icon,
@@ -30,18 +31,6 @@ import {
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
 
-const OVERALL_LABEL: Record<OverallStatus, string> = {
-  operational: "All Systems Operational",
-  degraded: "Partial Outage",
-  down: "Systems Down",
-};
-
-const OVERALL_TEXT: Record<OverallStatus, string> = {
-  operational: "text-emerald-600 dark:text-emerald-400",
-  degraded: "text-amber-600 dark:text-amber-400",
-  down: "text-red-600 dark:text-red-400",
-};
-
 const COMPONENT_ICON: Record<string, LucideIcon> = {
   api: ServerIcon,
   database: DatabaseIcon,
@@ -50,18 +39,11 @@ const COMPONENT_ICON: Record<string, LucideIcon> = {
   model: BrainCircuitIcon,
 };
 
-/**
- * The full set of subsystems we always want to display. If the health request
- * fails or omits one, we still render it (defaulting to "down") so the list is
- * never partial.
- */
-const KNOWN_COMPONENTS: { key: string; name: string }[] = [
-  { key: "api", name: "API" },
-  { key: "database", name: "Database" },
-  { key: "redis", name: "Queue (Redis)" },
-  { key: "worker", name: "Worker" },
-  { key: "model", name: "Model (vLLM)" },
-];
+const OVERALL_TEXT: Record<OverallStatus, string> = {
+  operational: "text-emerald-600 dark:text-emerald-400",
+  degraded: "text-amber-600 dark:text-amber-400",
+  down: "text-red-600 dark:text-red-400",
+};
 
 const STATUS_TEXT: Record<ComponentStatus, string> = {
   up: "text-emerald-600 dark:text-emerald-400",
@@ -69,12 +51,25 @@ const STATUS_TEXT: Record<ComponentStatus, string> = {
 };
 
 export function SystemHealth() {
+  const t = useTranslations("health");
   const { data, loading, refresh } = useSystemHealth();
   const overall: OverallStatus = data?.status ?? "down";
   const initialLoading = loading && !data;
 
-  // Always render every known subsystem. Merge in live statuses where present;
-  // anything missing or unreachable falls back to "down".
+  const OVERALL_LABEL: Record<OverallStatus, string> = {
+    operational: t("operational"),
+    degraded: t("degraded"),
+    down: t("down"),
+  };
+
+  const KNOWN_COMPONENTS: { key: string; name: string }[] = [
+    { key: "api", name: t("api") },
+    { key: "database", name: t("database") },
+    { key: "redis", name: t("redis") },
+    { key: "worker", name: t("worker") },
+    { key: "model", name: t("model") },
+  ];
+
   const components: SystemComponent[] = KNOWN_COMPONENTS.map((known) => {
     const live = data?.components.find((c) => c.key === known.key);
     return {
@@ -91,7 +86,7 @@ export function SystemHealth() {
           variant="ghost"
           size="sm"
           className="h-8 gap-2 px-2.5 font-medium"
-          aria-label="System health"
+          aria-label={t("ariaLabel")}
         >
           {initialLoading ? (
             <Skeleton className="size-2.5 rounded-full" />
@@ -99,7 +94,7 @@ export function SystemHealth() {
             <StatusDot status={overall} />
           )}
           <span className={cn("hidden text-xs sm:inline", OVERALL_TEXT[overall])}>
-            {initialLoading ? "Checking…" : OVERALL_LABEL[overall]}
+            {initialLoading ? t("checking") : OVERALL_LABEL[overall]}
           </span>
         </Button>
       </HoverCardTrigger>
@@ -108,7 +103,7 @@ export function SystemHealth() {
           <span className="flex items-center gap-2">
             <ActivityIcon className={cn("size-4", OVERALL_TEXT[overall])} />
             <span className={cn("text-sm font-semibold", OVERALL_TEXT[overall])}>
-              {initialLoading ? "Checking…" : OVERALL_LABEL[overall]}
+              {initialLoading ? t("checking") : OVERALL_LABEL[overall]}
             </span>
           </span>
           <Button
@@ -116,7 +111,7 @@ export function SystemHealth() {
             size="icon"
             className="text-muted-foreground size-6"
             onClick={() => void refresh()}
-            aria-label="Refresh"
+            aria-label={t("refresh")}
           >
             <RefreshCwIcon className={cn("size-3.5", loading && "animate-spin")} />
           </Button>
@@ -149,7 +144,7 @@ export function SystemHealth() {
                     )}
                   >
                     <StatusIcon className="size-3.5" />
-                    {c.status === "up" ? "Operational" : "Down"}
+                    {c.status === "up" ? t("componentOperational") : t("componentDown")}
                   </span>
                 </li>
               );
