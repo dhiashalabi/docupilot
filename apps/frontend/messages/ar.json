@@ -56,7 +56,8 @@
     "summaryFailed": "فشل التلخيص",
     "pdfGenerationFailed": "فشل إنشاء PDF",
     "copyFailed": "تعذر النسخ إلى الحافظة",
-    "notPdf": "{filename} ليس ملف PDF"
+    "notPdf": "{filename} ليس ملف PDF",
+    "renameChatFailed": "تعذرت إعادة تسمية المحادثة"
   },
   "toasts": {
     "uploaded": "تم رفع {filename}",
@@ -88,7 +89,11 @@
     "emptyDescription": "اطرح أسئلة حول مستنداتك. تتضمن الإجابات استشهادات بالمصادر للتحقق.",
     "inputPlaceholder": "اسأل أي شيء عن مستنداتك…",
     "sendHint": "للإرسال",
-    "newLineHint": "لسطر جديد"
+    "newLineHint": "لسطر جديد",
+    "renameChat": "إعادة تسمية المحادثة",
+    "renameChatDescription": "أدخل اسمًا جديدًا لهذه المحادثة.",
+    "chatTitlePlaceholder": "عنوان المحادثة",
+    "renameChatSuccess": "تمت إعادة تسمية المحادثة"
   },
   "search": {
     "title": "بحث",

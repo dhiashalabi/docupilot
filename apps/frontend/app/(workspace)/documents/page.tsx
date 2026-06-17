@@ -403,8 +403,8 @@ export default function DocumentsPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>{tc("cancel")}</AlertDialogCancel>
             <AlertDialogAction
+              variant="destructiveSolid"
               onClick={() => void confirmDelete()}
-              className="bg-destructive text-white hover:bg-destructive/90"
             >
               {tc("delete")}
             </AlertDialogAction>

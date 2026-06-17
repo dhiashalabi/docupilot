@@ -12,6 +12,15 @@ from app.core.exceptions import NotFoundError
 from app.domain.models import Chat, ChatDocument, Document, Message
 
 
+def title_from_message(text: str, *, max_len: int = 80) -> str | None:
+    cleaned = " ".join((text or "").split())
+    if not cleaned:
+        return None
+    if len(cleaned) <= max_len:
+        return cleaned
+    return cleaned[: max_len - 1].rstrip() + "…"
+
+
 async def create_chat(
     session: AsyncSession, title: str | None, document_ids: list[uuid.UUID]
 ) -> Chat:
@@ -67,7 +76,8 @@ async def update_chat(
     if document_ids is not None:
         await _set_documents(session, chat, document_ids)
     await session.flush()
-    return await get_chat(session, chat_id)
+    await session.refresh(chat)
+    return chat
 
 
 async def delete_chat(session: AsyncSession, chat_id: uuid.UUID) -> None:
@@ -75,9 +85,9 @@ async def delete_chat(session: AsyncSession, chat_id: uuid.UUID) -> None:
     await session.delete(chat)
 
 
-async def get_document_ids(session: AsyncSession, chat: Chat) -> list[uuid.UUID]:
+async def get_document_ids(session: AsyncSession, chat_id: uuid.UUID) -> list[uuid.UUID]:
     rows = await session.scalars(
-        select(ChatDocument.document_id).where(ChatDocument.chat_id == chat.id)
+        select(ChatDocument.document_id).where(ChatDocument.chat_id == chat_id)
     )
     return list(rows)
 

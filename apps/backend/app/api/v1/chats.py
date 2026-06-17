@@ -14,7 +14,7 @@ router = APIRouter(prefix="/chats", tags=["chats"])
 
 
 async def _to_read(session, chat) -> ChatRead:
-    doc_ids = await chat_service.get_document_ids(session, chat)
+    doc_ids = await chat_service.get_document_ids(session, chat.id)
     return ChatRead(
         id=chat.id,
         title=chat.title,
@@ -43,10 +43,9 @@ async def get_chat(chat_id: uuid.UUID, session: SessionDep) -> ChatRead:
 
 
 @router.patch("/{chat_id}", response_model=ChatRead)
+@router.put("/{chat_id}", response_model=ChatRead)
 async def update_chat(chat_id: uuid.UUID, payload: ChatUpdate, session: SessionDep) -> ChatRead:
-    chat = await chat_service.update_chat(
-        session, chat_id, payload.title, payload.document_ids
-    )
+    chat = await chat_service.update_chat(session, chat_id, payload.title, payload.document_ids)
     return await _to_read(session, chat)
 
 

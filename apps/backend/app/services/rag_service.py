@@ -19,6 +19,7 @@ from app.ai.language import detect_language
 from app.config import settings
 from app.domain.models import Chat, ChatDocument, Message, MessageCitation
 from app.rag import context_assembler, embedder, retriever
+from app.services import chat_service
 
 
 async def _chat_document_ids(session: AsyncSession, chat: Chat) -> list[uuid.UUID]:
@@ -69,9 +70,7 @@ async def _build_context(session: AsyncSession, chat: Chat, question: str):
     return messages, chunks
 
 
-async def answer_stream(
-    session: AsyncSession, chat: Chat, question: str
-) -> AsyncIterator[dict]:
+async def answer_stream(session: AsyncSession, chat: Chat, question: str) -> AsyncIterator[dict]:
     """Stream an answer.
 
     Yields dict events: {"type": "token", "text": ...} during generation and a
@@ -81,6 +80,9 @@ async def answer_stream(
     lang = detect_language(question)
     user_msg = Message(chat_id=chat.id, role="user", content=question, language=lang)
     session.add(user_msg)
+    if not (chat.title or "").strip():
+        chat.title = chat_service.title_from_message(question)
+    session.add(chat)
     # Commit the user's message immediately so it is never lost if the client
     # disconnects or the LLM call fails mid-stream.
     await session.commit()

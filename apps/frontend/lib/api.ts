@@ -98,7 +98,7 @@ export const api = {
     body: { title?: string | null; document_ids?: string[] | null }
   ) =>
     request<ChatRead>(`/chats/${id}`, {
-      method: "PATCH",
+      method: "PUT",
       body: JSON.stringify(body),
     }),
   deleteChat: (id: string) =>

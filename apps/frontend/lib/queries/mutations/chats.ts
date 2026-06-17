@@ -30,7 +30,7 @@ export function useDeleteChat() {
   })
 }
 
-/** Patch a chat's title or document list. */
+/** Patch a chat's title or document list (uses PUT for hosted proxy CORS compatibility). */
 export function useUpdateChat() {
   const qc = useQueryClient()
   return useMutation({

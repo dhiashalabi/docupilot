@@ -11,9 +11,11 @@ import {
   FileTextIcon,
   BotIcon,
   UserIcon,
+  PencilIcon,
 } from "lucide-react"
 
 import { streamMessage } from "@/lib/api"
+import { displayChatTitle } from "@/lib/chat-title"
 import { useChat, useMessages, useSystemHealth, qk } from "@/lib/queries"
 import type { MessageRead, StreamEvent } from "@/lib/types"
 import { Button } from "@/components/ui/button"
@@ -23,7 +25,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { Kbd } from "@/components/ui/kbd"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { RenameChatDialog } from "@/components/rename-chat-dialog"
 import { cn } from "@/lib/utils"
+import { resolveTextDirection } from "@/lib/text-direction"
 
 interface StreamingState {
   text: string
@@ -66,10 +70,12 @@ function Bubble({
   role,
   children,
   citations,
+  language,
 }: {
   role: "user" | "assistant"
   children: React.ReactNode
   citations?: MessageRead["citations"] | StreamingState["citations"]
+  language?: string | null
 }) {
   const isUser = role === "user"
   return (
@@ -101,7 +107,13 @@ function Bubble({
               : "rounded-tl-md bg-muted"
           )}
         >
-          <div className="wrap-break-word whitespace-pre-wrap">{children}</div>
+          <div
+            dir={resolveTextDirection(language)}
+            lang={language ?? undefined}
+            className="text-start wrap-break-word whitespace-pre-wrap"
+          >
+            {children}
+          </div>
         </div>
         {citations ? <CitationList citations={citations} /> : null}
       </div>
@@ -130,6 +142,7 @@ export default function ChatPage({
 }) {
   const { id } = use(params)
   const t = useTranslations("chat")
+  const tc = useTranslations("common")
   const te = useTranslations("errors")
 
   const queryClient = useQueryClient()
@@ -140,6 +153,7 @@ export default function ChatPage({
   const [input, setInput] = React.useState("")
   const [streaming, setStreaming] = React.useState<StreamingState | null>(null)
   const [busy, setBusy] = React.useState(false)
+  const [renameOpen, setRenameOpen] = React.useState(false)
   const viewportRef = React.useRef<HTMLDivElement>(null)
   const textareaRef = React.useRef<HTMLTextAreaElement>(null)
 
@@ -203,6 +217,8 @@ export default function ChatPage({
       })
       // Replace optimistic data with the real messages from the server
       await queryClient.invalidateQueries({ queryKey: qk.messages(id) })
+      await queryClient.invalidateQueries({ queryKey: qk.chat(id) })
+      await queryClient.invalidateQueries({ queryKey: qk.chats })
     } catch (e) {
       toast.error(e instanceof Error ? e.message : te("sendMessageFailed"))
       // Roll back the optimistic message on error
@@ -224,15 +240,33 @@ export default function ChatPage({
         <div className="flex size-7 items-center justify-center rounded-lg bg-muted">
           <BotIcon className="size-3.5 text-muted-foreground" />
         </div>
-        <div className="min-w-0 flex-1">
-          <h1 className="truncate text-sm leading-tight font-medium">
-            {chatData?.title || t("newChat")}
-          </h1>
-          <p className="text-[11px] text-muted-foreground">
-            {t("documentsInContext", { count: docCount })}
-          </p>
+        <div className="flex min-w-0 flex-1 items-center gap-1">
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-sm leading-tight font-medium">
+              {displayChatTitle(chatData?.title, tc("untitledChat"))}
+            </h1>
+            <p className="text-[11px] text-muted-foreground">
+              {t("documentsInContext", { count: docCount })}
+            </p>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-7 shrink-0 text-muted-foreground"
+            onClick={() => setRenameOpen(true)}
+            aria-label={t("renameChat")}
+          >
+            <PencilIcon className="size-3.5" />
+          </Button>
         </div>
       </div>
+
+      <RenameChatDialog
+        open={renameOpen}
+        onOpenChange={setRenameOpen}
+        chatId={id}
+        currentTitle={chatData?.title}
+      />
 
       {!llmReady && (
         <div className="flex shrink-0 items-center gap-2 border-b bg-muted/40 px-4 py-2 text-[11px] text-muted-foreground lg:px-6">
@@ -278,12 +312,21 @@ export default function ChatPage({
           ) : (
             <>
               {messagesData?.map((m) => (
-                <Bubble key={m.id} role={m.role} citations={m.citations}>
+                <Bubble
+                  key={m.id}
+                  role={m.role}
+                  language={m.language}
+                  citations={m.citations}
+                >
                   {m.content}
                 </Bubble>
               ))}
               {streaming && (
-                <Bubble role="assistant" citations={streaming.citations}>
+                <Bubble
+                  role="assistant"
+                  language={null}
+                  citations={streaming.citations}
+                >
                   {streaming.text || <TypingIndicator />}
                 </Bubble>
               )}

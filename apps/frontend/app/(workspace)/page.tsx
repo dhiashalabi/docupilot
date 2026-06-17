@@ -11,15 +11,18 @@ import {
   SparklesIcon,
   FileTextIcon,
   SearchIcon,
+  PencilIcon,
 } from "lucide-react"
 
 import { useChats, useDeleteChat, useCreateChat } from "@/lib/queries"
 import type { ChatRead } from "@/lib/types"
+import { displayChatTitle } from "@/lib/chat-title"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import { RenameChatDialog } from "@/components/rename-chat-dialog"
 import {
   Empty,
   EmptyContent,
@@ -49,6 +52,9 @@ export default function ChatsHomePage() {
   const deleteChatMutation = useDeleteChat()
 
   const [pendingDelete, setPendingDelete] = React.useState<ChatRead | null>(
+    null
+  )
+  const [pendingRename, setPendingRename] = React.useState<ChatRead | null>(
     null
   )
 
@@ -208,7 +214,7 @@ export default function ChatsHomePage() {
                   </div>
                   <Link href={`/chat/${chat.id}`} className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">
-                      {chat.title || t("common.untitledChat")}
+                      {displayChatTitle(chat.title, t("common.untitledChat"))}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {t("common.documentCount", {
@@ -217,6 +223,15 @@ export default function ChatsHomePage() {
                       · {relativeTime(chat.updated_at)}
                     </p>
                   </Link>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-7 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
+                    onClick={() => setPendingRename(chat)}
+                    aria-label={t("chat.renameChat")}
+                  >
+                    <PencilIcon className="size-3.5" />
+                  </Button>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -249,14 +264,23 @@ export default function ChatsHomePage() {
           <AlertDialogFooter>
             <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
+              variant="destructiveSolid"
               onClick={() => void confirmDelete()}
-              className="bg-destructive text-white hover:bg-destructive/90"
             >
               {t("common.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {pendingRename && (
+        <RenameChatDialog
+          open={!!pendingRename}
+          onOpenChange={(open) => !open && setPendingRename(null)}
+          chatId={pendingRename.id}
+          currentTitle={pendingRename.title}
+        />
+      )}
     </div>
   )
 }

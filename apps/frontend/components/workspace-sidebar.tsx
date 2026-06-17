@@ -16,11 +16,14 @@ import {
   MoreHorizontalIcon,
   CircleHelpIcon,
   Settings2Icon,
+  PencilIcon,
 } from "lucide-react"
 
 import { useChats, useCreateChat, useDeleteChat } from "@/lib/queries"
 import type { ChatRead } from "@/lib/types"
+import { displayChatTitle } from "@/lib/chat-title"
 import { useDirection } from "@/components/ui/direction"
+import { RenameChatDialog } from "@/components/rename-chat-dialog"
 import {
   Sidebar,
   SidebarContent,
@@ -66,6 +69,9 @@ export function WorkspaceSidebar({
   const deleteChatMutation = useDeleteChat()
 
   const [pendingDelete, setPendingDelete] = React.useState<ChatRead | null>(
+    null
+  )
+  const [pendingRename, setPendingRename] = React.useState<ChatRead | null>(
     null
   )
 
@@ -194,7 +200,10 @@ export function WorkspaceSidebar({
                       <Link href={`/chat/${chat.id}`}>
                         <MessageSquareTextIcon />
                         <span className="truncate">
-                          {chat.title || t("common.untitledChat")}
+                          {displayChatTitle(
+                            chat.title,
+                            t("common.untitledChat")
+                          )}
                         </span>
                       </Link>
                     </SidebarMenuButton>
@@ -218,6 +227,12 @@ export function WorkspaceSidebar({
                             <MessageSquareTextIcon />
                             <span>{t("common.open")}</span>
                           </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => setPendingRename(chat)}
+                        >
+                          <PencilIcon />
+                          <span>{t("chat.renameChat")}</span>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
@@ -283,14 +298,23 @@ export function WorkspaceSidebar({
           <AlertDialogFooter>
             <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
+              variant="destructiveSolid"
               onClick={() => void confirmDelete()}
-              className="bg-destructive text-white hover:bg-destructive/90"
             >
               {t("common.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {pendingRename && (
+        <RenameChatDialog
+          open={!!pendingRename}
+          onOpenChange={(open) => !open && setPendingRename(null)}
+          chatId={pendingRename.id}
+          currentTitle={pendingRename.title}
+        />
+      )}
     </Sidebar>
   )
 }
