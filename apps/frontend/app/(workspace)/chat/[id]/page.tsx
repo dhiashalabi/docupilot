@@ -39,7 +39,7 @@ function CitationList({
 
   if (!citations.length) return null
   return (
-    <div className="mt-2.5 flex flex-wrap gap-1.5">
+    <div className="mt-1.5 flex flex-wrap gap-1.5">
       {citations.map((c, i) => {
         const page = "page_from" in c ? c.page_from : null
         const label =
@@ -73,7 +73,7 @@ function Bubble({
 }) {
   const isUser = role === "user"
   return (
-    <div className={cn("flex gap-3", isUser ? "flex-row-reverse" : "flex-row")}>
+    <div className={cn("flex gap-2", isUser ? "flex-row-reverse" : "flex-row")}>
       <Avatar className="mt-0.5 size-7 shrink-0">
         <AvatarFallback
           className={cn(
@@ -95,7 +95,7 @@ function Bubble({
       >
         <div
           className={cn(
-            "rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed",
+            "rounded-2xl px-3 py-2 text-sm leading-normal",
             isUser
               ? "rounded-tr-md bg-primary text-primary-foreground"
               : "rounded-tl-md bg-muted"
@@ -219,8 +219,8 @@ export default function ChatPage({
   const docCount = chatData?.document_ids.length ?? 0
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
-      <div className="flex items-center gap-3 border-b px-4 py-2.5 lg:px-6">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="flex shrink-0 items-center gap-3 border-b px-4 py-2.5 lg:px-6">
         <div className="flex size-7 items-center justify-center rounded-lg bg-muted">
           <BotIcon className="size-3.5 text-muted-foreground" />
         </div>
@@ -235,21 +235,21 @@ export default function ChatPage({
       </div>
 
       {!llmReady && (
-        <div className="flex items-center gap-2 border-b bg-muted/40 px-4 py-2 text-[11px] text-muted-foreground lg:px-6">
+        <div className="flex shrink-0 items-center gap-2 border-b bg-muted/40 px-4 py-2 text-[11px] text-muted-foreground lg:px-6">
           <Loader2Icon className="size-3 animate-spin" />
           {t("modelLoading")}
         </div>
       )}
 
-      <ScrollArea className="flex-1" viewportRef={viewportRef}>
-        <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 px-4 py-4 lg:px-6">
+      <ScrollArea className="min-h-0 flex-1" viewportRef={viewportRef}>
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-4 py-3 lg:px-6">
           {initialLoading ? (
             <>
               {[0, 1, 2].map((i) => (
                 <div
                   key={i}
                   className={cn(
-                    "flex gap-3",
+                    "flex gap-2",
                     i % 2 === 0 ? "flex-row" : "flex-row-reverse"
                   )}
                 >
@@ -292,7 +292,7 @@ export default function ChatPage({
         </div>
       </ScrollArea>
 
-      <div className="border-t bg-background/80 px-4 py-3 backdrop-blur-sm lg:px-6">
+      <div className="shrink-0 border-t bg-background/80 px-4 py-3 backdrop-blur-sm lg:px-6">
         <div className="mx-auto flex w-full max-w-2xl items-end gap-2">
           <div className="flex flex-1 items-end rounded-xl border bg-muted/30 transition-colors focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/20">
             <Textarea
