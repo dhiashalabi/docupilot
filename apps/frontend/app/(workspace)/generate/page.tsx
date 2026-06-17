@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 
 import { api } from "@/lib/api";
-import { useDocuments } from "@/lib/hooks";
+import { useDocuments, useSummarize, useGeneratePdf } from "@/lib/queries";
 import { DocumentPicker } from "@/components/document-picker";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
@@ -41,27 +41,29 @@ export default function GeneratePage() {
   const tc = useTranslations("common");
   const te = useTranslations("errors");
   const tt = useTranslations("toasts");
-  const docs = useDocuments();
+
+  const { data: documents } = useDocuments();
+  const summarizeMutation = useSummarize();
+  const generatePdfMutation = useGeneratePdf();
+
   const [selected, setSelected] = React.useState<string[]>([]);
   const [instruction, setInstruction] = React.useState("");
-  const [summarizing, setSummarizing] = React.useState(false);
-
   const [title, setTitle] = React.useState("");
   const [markdown, setMarkdown] = React.useState("");
-  const [generating, setGenerating] = React.useState(false);
   const [copied, setCopied] = React.useState(false);
   const [view, setView] = React.useState<"edit" | "preview">("edit");
-
   const [activeTab, setActiveTab] = React.useState("summarize");
+
+  const summarizing = summarizeMutation.isPending;
+  const generating = generatePdfMutation.isPending;
 
   const summarize = async () => {
     if (!selected.length) {
       toast.error(t("selectDocument"));
       return;
     }
-    setSummarizing(true);
     try {
-      const { summary } = await api.summarize({
+      const { summary } = await summarizeMutation.mutateAsync({
         document_ids: selected,
         instruction: instruction.trim() || undefined,
       });
@@ -71,8 +73,6 @@ export default function GeneratePage() {
       setActiveTab("export");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : te("summaryFailed"));
-    } finally {
-      setSummarizing(false);
     }
   };
 
@@ -81,15 +81,15 @@ export default function GeneratePage() {
       toast.error(t("titleContentRequired"));
       return;
     }
-    setGenerating(true);
     try {
-      const record = await api.generatePdf({ title: title.trim(), markdown });
+      const record = await generatePdfMutation.mutateAsync({
+        title: title.trim(),
+        markdown,
+      });
       toast.success(tt("pdfGenerated"));
       window.open(api.downloadPdfUrl(record.id), "_blank");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : te("pdfGenerationFailed"));
-    } finally {
-      setGenerating(false);
     }
   };
 
@@ -131,7 +131,7 @@ export default function GeneratePage() {
                 <FieldLabel>{t("sourceDocuments")}</FieldLabel>
                 <FieldDescription>{t("sourceDocumentsDesc")}</FieldDescription>
                 <DocumentPicker
-                  documents={docs.data ?? []}
+                  documents={documents ?? []}
                   selected={selected}
                   onChange={setSelected}
                 />

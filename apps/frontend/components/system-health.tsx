@@ -15,7 +15,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { useSystemHealth } from "@/lib/hooks";
+import { useSystemHealth } from "@/lib/queries";
 import type {
   ComponentStatus,
   OverallStatus,
@@ -52,7 +52,7 @@ const STATUS_TEXT: Record<ComponentStatus, string> = {
 
 export function SystemHealth() {
   const t = useTranslations("health");
-  const { data, loading, refresh } = useSystemHealth();
+  const { data, isPending: loading, refetch: refresh } = useSystemHealth();
   const overall: OverallStatus = data?.status ?? "down";
   const initialLoading = loading && !data;
 

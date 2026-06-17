@@ -13,8 +13,7 @@ import {
   SearchIcon,
 } from "lucide-react";
 
-import { api } from "@/lib/api";
-import { useChats } from "@/lib/hooks";
+import { useChats, useDeleteChat, useCreateChat } from "@/lib/queries";
 import type { ChatRead } from "@/lib/types";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -44,11 +43,12 @@ import { relativeTime } from "@/lib/utils";
 export default function ChatsHomePage() {
   const router = useRouter();
   const t = useTranslations();
-  const chats = useChats();
-  const [creating, setCreating] = React.useState(false);
-  const [pendingDelete, setPendingDelete] = React.useState<ChatRead | null>(
-    null
-  );
+
+  const { data: chatsData, isPending } = useChats();
+  const createChatMutation = useCreateChat();
+  const deleteChatMutation = useDeleteChat();
+
+  const [pendingDelete, setPendingDelete] = React.useState<ChatRead | null>(null);
 
   const features = [
     {
@@ -69,15 +69,14 @@ export default function ChatsHomePage() {
   ];
 
   const createChat = async () => {
-    setCreating(true);
     try {
-      const chat = await api.createChat({ title: null, document_ids: [] });
+      const chat = await createChatMutation.mutateAsync({
+        title: null,
+        document_ids: [],
+      });
       router.push(`/chat/${chat.id}`);
     } catch (e) {
-      toast.error(
-        e instanceof Error ? e.message : t("errors.createChatFailed")
-      );
-      setCreating(false);
+      toast.error(e instanceof Error ? e.message : t("errors.createChatFailed"));
     }
   };
 
@@ -86,15 +85,15 @@ export default function ChatsHomePage() {
     const chat = pendingDelete;
     setPendingDelete(null);
     try {
-      await api.deleteChat(chat.id);
-      await chats.refresh();
+      await deleteChatMutation.mutateAsync(chat.id);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t("errors.deleteFailed"));
     }
   };
 
-  const recentChats = chats.data ?? [];
-  const loading = chats.loading && !chats.data;
+  const recentChats = chatsData ?? [];
+  const loading = isPending && !chatsData;
+  const creating = createChatMutation.isPending;
   const hasChats = recentChats.length > 0;
 
   if (loading) {
@@ -241,8 +240,7 @@ export default function ChatsHomePage() {
             <AlertDialogTitle>{t("home.deleteChatTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
               {t("home.deleteChatDescription", {
-                title:
-                  pendingDelete?.title || t("common.thisConversation"),
+                title: pendingDelete?.title || t("common.thisConversation"),
               })}
             </AlertDialogDescription>
           </AlertDialogHeader>

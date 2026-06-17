@@ -12,8 +12,7 @@ import {
   XIcon,
 } from "lucide-react";
 
-import { api } from "@/lib/api";
-import { useDocuments } from "@/lib/hooks";
+import { useDocuments, useSearch } from "@/lib/queries";
 import { DocumentPicker } from "@/components/document-picker";
 import type { SearchHit } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
@@ -42,13 +41,17 @@ export default function SearchPage() {
   const t = useTranslations("search");
   const tc = useTranslations("common");
   const te = useTranslations("errors");
-  const docs = useDocuments();
+
+  const { data: documents } = useDocuments();
+  const searchMutation = useSearch();
+
   const [query, setQuery] = React.useState("");
   const [selected, setSelected] = React.useState<string[]>([]);
   const [hits, setHits] = React.useState<SearchHit[] | null>(null);
-  const [loading, setLoading] = React.useState(false);
   const [showFilters, setShowFilters] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
+
+  const loading = searchMutation.isPending;
 
   const suggestions = [
     t("suggestion1"),
@@ -58,17 +61,14 @@ export default function SearchPage() {
 
   const run = async () => {
     if (!query.trim()) return;
-    setLoading(true);
     try {
-      const results = await api.search({
+      const results = await searchMutation.mutateAsync({
         query: query.trim(),
         document_ids: selected,
       });
       setHits(results);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : te("searchFailed"));
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -136,7 +136,7 @@ export default function SearchPage() {
               )}
             </div>
             <DocumentPicker
-              documents={docs.data ?? []}
+              documents={documents ?? []}
               selected={selected}
               onChange={setSelected}
             />

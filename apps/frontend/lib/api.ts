@@ -19,6 +19,22 @@ import type {
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const PREFIX = `${BASE}/api/v1`;
 
+/** Typed error thrown by all API helpers — carries the HTTP status code. */
+export class ApiError extends Error {
+  constructor(
+    public readonly status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+
+  /** True for any 4xx status — used to suppress retries. */
+  get isClientError() {
+    return this.status >= 400 && this.status < 500;
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${PREFIX}${path}`, {
     headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
@@ -32,7 +48,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       /* ignore */
     }
-    throw new Error(detail);
+    throw new ApiError(res.status, detail);
   }
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
@@ -56,7 +72,16 @@ export const api = {
     const form = new FormData();
     form.append("file", file);
     const res = await fetch(`${PREFIX}/documents`, { method: "POST", body: form });
-    if (!res.ok) throw new Error((await res.json()).detail ?? "Upload failed");
+    if (!res.ok) {
+      let detail = res.statusText;
+      try {
+        const body = await res.json();
+        detail = body.detail ?? detail;
+      } catch {
+        /* ignore */
+      }
+      throw new ApiError(res.status, detail);
+    }
     return res.json();
   },
 

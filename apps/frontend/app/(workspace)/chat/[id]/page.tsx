@@ -4,10 +4,11 @@ import * as React from "react";
 import { use } from "react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
+import { useQueryClient } from "@tanstack/react-query";
 import { SendIcon, Loader2Icon, FileTextIcon, BotIcon, UserIcon } from "lucide-react";
 
 import { streamMessage } from "@/lib/api";
-import { useChat, useMessages, useSystemHealth } from "@/lib/hooks";
+import { useChat, useMessages, useSystemHealth, qk } from "@/lib/queries";
 import type { MessageRead, StreamEvent } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -70,7 +71,7 @@ function Bubble({
       <Avatar className="mt-0.5 size-7 shrink-0">
         <AvatarFallback
           className={cn(
-            isUser ? "bg-primary text-primary-foreground" : "bg-card border"
+            isUser ? "bg-primary text-primary-foreground" : "bg-card border",
           )}
         >
           {isUser ? (
@@ -86,7 +87,7 @@ function Bubble({
             "rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed",
             isUser
               ? "bg-primary text-primary-foreground rounded-tr-md"
-              : "bg-muted rounded-tl-md"
+              : "bg-muted rounded-tl-md",
           )}
         >
           <div className="whitespace-pre-wrap wrap-break-word">{children}</div>
@@ -119,16 +120,19 @@ export default function ChatPage({
   const { id } = use(params);
   const t = useTranslations("chat");
   const te = useTranslations("errors");
-  const chat = useChat(id);
-  const messages = useMessages(id);
-  const health = useSystemHealth();
+
+  const queryClient = useQueryClient();
+  const { data: chatData } = useChat(id);
+  const { data: messagesData, isPending: messagesLoading } = useMessages(id);
+  const { data: healthData } = useSystemHealth();
+
   const [input, setInput] = React.useState("");
   const [streaming, setStreaming] = React.useState<StreamingState | null>(null);
   const [busy, setBusy] = React.useState(false);
   const viewportRef = React.useRef<HTMLDivElement>(null);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
-  const modelComponent = health.data?.components.find((c) => c.key === "model");
+  const modelComponent = healthData?.components.find((c) => c.key === "model");
   const llmReady = modelComponent ? modelComponent.status === "up" : true;
 
   const scrollToBottom = React.useCallback(() => {
@@ -142,7 +146,7 @@ export default function ChatPage({
 
   React.useEffect(() => {
     scrollToBottom();
-  }, [messages.data, streaming, scrollToBottom]);
+  }, [messagesData, streaming, scrollToBottom]);
 
   const adjustTextarea = React.useCallback(() => {
     const el = textareaRef.current;
@@ -162,16 +166,18 @@ export default function ChatPage({
     setBusy(true);
     setStreaming({ text: "", citations: [] });
 
-    messages.setData([
-      ...(messages.data ?? []),
-      {
-        id: `tmp-${Date.now()}`,
-        role: "user",
-        content,
-        language: null,
-        citations: [],
-        created_at: new Date().toISOString(),
-      },
+    // Optimistically insert the user's message into the cache
+    const optimisticMessage: MessageRead = {
+      id: `tmp-${Date.now()}`,
+      role: "user",
+      content,
+      language: null,
+      citations: [],
+      created_at: new Date().toISOString(),
+    };
+    queryClient.setQueryData<MessageRead[]>(qk.messages(id), (prev) => [
+      ...(prev ?? []),
+      optimisticMessage,
     ]);
 
     try {
@@ -184,9 +190,12 @@ export default function ChatPage({
           toast.error(event.detail);
         }
       });
-      await messages.refresh();
+      // Replace optimistic data with the real messages from the server
+      await queryClient.invalidateQueries({ queryKey: qk.messages(id) });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : te("sendMessageFailed"));
+      // Roll back the optimistic message on error
+      await queryClient.invalidateQueries({ queryKey: qk.messages(id) });
     } finally {
       setStreaming(null);
       setBusy(false);
@@ -194,9 +203,9 @@ export default function ChatPage({
     }
   };
 
-  const initialLoading = messages.loading && !messages.data;
-  const hasMessages = (messages.data?.length ?? 0) > 0 || streaming;
-  const docCount = chat.data?.document_ids.length ?? 0;
+  const initialLoading = messagesLoading && !messagesData;
+  const hasMessages = (messagesData?.length ?? 0) > 0 || streaming;
+  const docCount = chatData?.document_ids.length ?? 0;
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -206,7 +215,7 @@ export default function ChatPage({
         </div>
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-sm font-medium leading-tight">
-            {chat.data?.title || t("newChat")}
+            {chatData?.title || t("newChat")}
           </h1>
           <p className="text-muted-foreground text-[11px]">
             {t("documentsInContext", { count: docCount })}
@@ -230,7 +239,7 @@ export default function ChatPage({
                   key={i}
                   className={cn(
                     "flex gap-3",
-                    i % 2 === 0 ? "flex-row" : "flex-row-reverse"
+                    i % 2 === 0 ? "flex-row" : "flex-row-reverse",
                   )}
                 >
                   <Skeleton className="size-7 shrink-0 rounded-full" />
@@ -254,7 +263,7 @@ export default function ChatPage({
             </div>
           ) : (
             <>
-              {messages.data?.map((m) => (
+              {messagesData?.map((m) => (
                 <Bubble key={m.id} role={m.role} citations={m.citations}>
                   {m.content}
                 </Bubble>

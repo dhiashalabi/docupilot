@@ -18,8 +18,7 @@ import {
   Settings2Icon,
 } from "lucide-react";
 
-import { api } from "@/lib/api";
-import { useChats } from "@/lib/hooks";
+import { useChats, useCreateChat, useDeleteChat } from "@/lib/queries";
 import type { ChatRead } from "@/lib/types";
 import { useDirection } from "@/components/ui/direction";
 import {
@@ -61,7 +60,11 @@ export function WorkspaceSidebar({
   const direction = useDirection();
   const isRtl = direction === "rtl";
   const t = useTranslations();
-  const chats = useChats();
+
+  const { data: chatsData, isPending } = useChats();
+  const createChatMutation = useCreateChat();
+  const deleteChatMutation = useDeleteChat();
+
   const [pendingDelete, setPendingDelete] = React.useState<ChatRead | null>(null);
 
   const mainNav = [
@@ -78,12 +81,13 @@ export function WorkspaceSidebar({
 
   const createChat = async () => {
     try {
-      const chat = await api.createChat({ title: null, document_ids: [] });
+      const chat = await createChatMutation.mutateAsync({
+        title: null,
+        document_ids: [],
+      });
       router.push(`/chat/${chat.id}`);
     } catch (e) {
-      toast.error(
-        e instanceof Error ? e.message : t("errors.createChatFailed")
-      );
+      toast.error(e instanceof Error ? e.message : t("errors.createChatFailed"));
     }
   };
 
@@ -92,8 +96,7 @@ export function WorkspaceSidebar({
     const id = pendingDelete.id;
     setPendingDelete(null);
     try {
-      await api.deleteChat(id);
-      await chats.refresh();
+      await deleteChatMutation.mutateAsync(id);
       if (pathname === `/chat/${id}`) {
         router.push("/");
       }
@@ -102,8 +105,8 @@ export function WorkspaceSidebar({
     }
   };
 
-  const loading = chats.loading && !chats.data;
-  const recentChats = (chats.data ?? []).slice(0, 8);
+  const loading = isPending && !chatsData;
+  const recentChats = (chatsData ?? []).slice(0, 8);
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -227,7 +230,7 @@ export function WorkspaceSidebar({
                   </SidebarMenuItem>
                 );
               })}
-              {(chats.data?.length ?? 0) > 8 && (
+              {(chatsData?.length ?? 0) > 8 && (
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild className="text-sidebar-foreground/70">
                     <Link href="/">
@@ -268,8 +271,7 @@ export function WorkspaceSidebar({
             <AlertDialogTitle>{t("home.deleteChatTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
               {t("home.deleteChatDescription", {
-                title:
-                  pendingDelete?.title || t("common.thisConversation"),
+                title: pendingDelete?.title || t("common.thisConversation"),
               })}
             </AlertDialogDescription>
           </AlertDialogHeader>

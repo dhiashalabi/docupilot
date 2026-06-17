@@ -16,9 +16,14 @@ import {
   CheckCircle2Icon,
 } from "lucide-react";
 
-import { api } from "@/lib/api";
-import { useDocuments } from "@/lib/hooks";
-import type { DocumentRead, ProcessingJob } from "@/lib/types";
+import {
+  useDocuments,
+  useDocumentJob,
+  useUploadDocument,
+  useReingestDocument,
+  useDeleteDocument,
+} from "@/lib/queries";
+import type { DocumentRead } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -92,26 +97,7 @@ function StatusBadge({ status }: { status: DocumentRead["status"] }) {
 }
 
 function JobProgress({ documentId }: { documentId: string }) {
-  const [job, setJob] = React.useState<ProcessingJob | null>(null);
-
-  React.useEffect(() => {
-    let active = true;
-    const tick = async () => {
-      try {
-        const j = await api.getDocumentJob(documentId);
-        if (active) setJob(j);
-      } catch {
-        /* ignore */
-      }
-    };
-    void tick();
-    const t = setInterval(tick, 2000);
-    return () => {
-      active = false;
-      clearInterval(t);
-    };
-  }, [documentId]);
-
+  const { data: job } = useDocumentJob(documentId);
   const progress = job?.progress ?? 0;
   return (
     <div className="mt-2 flex items-center gap-2">
@@ -205,40 +191,41 @@ export default function DocumentsPage() {
   const tc = useTranslations("common");
   const te = useTranslations("errors");
   const tt = useTranslations("toasts");
-  const { data, loading, error, refresh } = useDocuments(3000);
-  const [uploading, setUploading] = React.useState(false);
+
+  const { data, isPending, isError, error, refetch } = useDocuments({ poll: true });
+  const uploadMutation = useUploadDocument();
+  const reingestMutation = useReingestDocument();
+  const deleteMutation = useDeleteDocument();
+
   const [dragOver, setDragOver] = React.useState(false);
   const [pendingDelete, setPendingDelete] = React.useState<DocumentRead | null>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
+  const uploading = uploadMutation.isPending;
+
   const upload = React.useCallback(
     async (files: FileList | null) => {
       if (!files?.length) return;
-      setUploading(true);
-      try {
-        for (const file of Array.from(files)) {
-          if (file.type !== "application/pdf") {
-            toast.error(te("notPdf", { filename: file.name }));
-            continue;
-          }
-          await api.uploadDocument(file);
-          toast.success(tt("uploaded", { filename: file.name }));
+      for (const file of Array.from(files)) {
+        if (file.type !== "application/pdf") {
+          toast.error(te("notPdf", { filename: file.name }));
+          continue;
         }
-        await refresh();
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : te("uploadFailed"));
-      } finally {
-        setUploading(false);
+        try {
+          await uploadMutation.mutateAsync(file);
+          toast.success(tt("uploaded", { filename: file.name }));
+        } catch (e) {
+          toast.error(e instanceof Error ? e.message : te("uploadFailed"));
+        }
       }
     },
-    [refresh, te, tt]
+    [uploadMutation, te, tt],
   );
 
   const reingest = async (doc: DocumentRead) => {
     try {
-      await api.reingestDocument(doc.id);
+      await reingestMutation.mutateAsync(doc.id);
       toast.success(tt("reingesting", { filename: doc.filename }));
-      await refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : te("reingestFailed"));
     }
@@ -249,9 +236,8 @@ export default function DocumentsPage() {
     const doc = pendingDelete;
     setPendingDelete(null);
     try {
-      await api.deleteDocument(doc.id);
+      await deleteMutation.mutateAsync(doc.id);
       toast.success(tt("deletedDocument", { filename: doc.filename }));
-      await refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : te("deleteFailed"));
     }
@@ -296,20 +282,20 @@ export default function DocumentsPage() {
           "relative overflow-hidden rounded-xl border-2 border-dashed transition-all duration-300",
           dragOver
             ? "border-primary bg-primary/5 scale-[1.01]"
-            : "border-border hover:border-muted-foreground/30"
+            : "border-border hover:border-muted-foreground/30",
         )}
       >
         <div className="flex flex-col items-center justify-center gap-4 px-6 py-10">
           <div
             className={cn(
               "flex size-14 items-center justify-center rounded-2xl transition-colors duration-300",
-              dragOver ? "bg-primary/15" : "bg-muted"
+              dragOver ? "bg-primary/15" : "bg-muted",
             )}
           >
             <UploadCloudIcon
               className={cn(
                 "size-7 transition-colors duration-300",
-                dragOver ? "text-primary" : "text-muted-foreground"
+                dragOver ? "text-primary" : "text-muted-foreground",
               )}
             />
           </div>
@@ -343,7 +329,7 @@ export default function DocumentsPage() {
         </div>
       </div>
 
-      {loading && !data ? (
+      {isPending && !data ? (
         <div className="grid gap-2">
           {[0, 1, 2].map((i) => (
             <Card key={i} className="flex-row items-center gap-3.5 px-4 py-3">
@@ -356,16 +342,16 @@ export default function DocumentsPage() {
             </Card>
           ))}
         </div>
-      ) : error ? (
+      ) : isError ? (
         <Empty className="flex-1">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <AlertCircleIcon className="text-destructive" />
             </EmptyMedia>
             <EmptyTitle>{t("loadErrorTitle")}</EmptyTitle>
-            <EmptyDescription>{error}</EmptyDescription>
+            <EmptyDescription>{error?.message}</EmptyDescription>
           </EmptyHeader>
-          <Button variant="outline" size="sm" onClick={() => void refresh()}>
+          <Button variant="outline" size="sm" onClick={() => void refetch()}>
             <RefreshCwIcon className="size-4" />
             {tc("retry")}
           </Button>

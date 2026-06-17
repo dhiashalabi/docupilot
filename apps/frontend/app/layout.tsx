@@ -5,6 +5,7 @@ import { getLocale, getMessages, getTranslations } from "next-intl/server";
 
 import "./globals.css";
 import { cn } from "@/lib/utils";
+import { Providers } from "@/components/providers";
 import { ThemeProvider } from "@/components/theme-provider";
 import { DirectionProvider } from "@/components/ui/direction";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -60,21 +61,23 @@ export default async function RootLayout({
       )}
     >
       <body className="min-h-full flex flex-col">
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <DirectionProvider direction={dir}>
-            <NextIntlClientProvider locale={locale} messages={messages}>
-              <TooltipProvider delayDuration={0}>
-                {children}
-                <Toaster position={dir === "rtl" ? "top-left" : "top-right"} />
-              </TooltipProvider>
-            </NextIntlClientProvider>
-          </DirectionProvider>
-        </ThemeProvider>
+        <Providers>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <DirectionProvider direction={dir}>
+              <NextIntlClientProvider locale={locale} messages={messages}>
+                <TooltipProvider delayDuration={0}>
+                  {children}
+                  <Toaster position={dir === "rtl" ? "top-left" : "top-right"} />
+                </TooltipProvider>
+              </NextIntlClientProvider>
+            </DirectionProvider>
+          </ThemeProvider>
+        </Providers>
       </body>
     </html>
   );
