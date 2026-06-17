@@ -25,7 +25,11 @@ class Settings(BaseSettings):
     api_prefix: str = "/api/v1"
     # Comma-separated list (or JSON array) of allowed CORS origins.
     allowed_origins: list[str] = Field(
-        default_factory=lambda: ["http://localhost:8080", "http://localhost:3000"]
+        default_factory=lambda: [
+            "http://localhost:8080",
+            "http://localhost:3000",
+            "https://3000-01kv8qt5y96a31hqwjxve2fkdx.cloudspaces.litng.ai",
+        ]
     )
 
     @field_validator("allowed_origins", mode="before")
