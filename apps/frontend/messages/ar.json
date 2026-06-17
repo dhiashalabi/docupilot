@@ -46,7 +46,7 @@
     "switchTo": "English",
     "current": "العربية"
   },
-  "theme": {
+  "errors": {
     "createChatFailed": "تعذر إنشاء المحادثة",
     "deleteFailed": "فشل الحذف",
     "searchFailed": "فشل البحث",
