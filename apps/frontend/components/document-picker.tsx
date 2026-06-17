@@ -1,48 +1,48 @@
-"use client";
+"use client"
 
-import * as React from "react";
-import { useTranslations } from "next-intl";
-import { FileTextIcon } from "lucide-react";
+import * as React from "react"
+import { useTranslations } from "next-intl"
+import { FileTextIcon } from "lucide-react"
 
-import type { DocumentRead } from "@/lib/types";
-import { Checkbox } from "@/components/ui/checkbox";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import type { DocumentRead } from "@/lib/types"
+import { Checkbox } from "@/components/ui/checkbox"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 
 interface Props {
-  documents: DocumentRead[];
-  selected: string[];
-  onChange: (ids: string[]) => void;
+  documents: DocumentRead[]
+  selected: string[]
+  onChange: (ids: string[]) => void
 }
 
 export function DocumentPicker({ documents, selected, onChange }: Props) {
-  const t = useTranslations("documentPicker");
-  const tc = useTranslations("common");
-  const ready = documents.filter((d) => d.status === "READY");
+  const t = useTranslations("documentPicker")
+  const tc = useTranslations("common")
+  const ready = documents.filter((d) => d.status === "READY")
 
   const toggle = (id: string) => {
     onChange(
       selected.includes(id)
         ? selected.filter((x) => x !== id)
         : [...selected, id]
-    );
-  };
+    )
+  }
 
-  const allSelected = ready.length > 0 && selected.length >= ready.length;
+  const allSelected = ready.length > 0 && selected.length >= ready.length
 
-  const selectAll = () => onChange(ready.map((d) => d.id));
-  const clear = () => onChange([]);
+  const selectAll = () => onChange(ready.map((d) => d.id))
+  const clear = () => onChange([])
 
   if (!ready.length) {
-    return <p className="text-muted-foreground text-xs">{t("empty")}</p>;
+    return <p className="text-xs text-muted-foreground">{t("empty")}</p>
   }
 
   return (
     <div className="overflow-hidden rounded-lg border">
-      <div className="bg-muted/40 flex items-center justify-between gap-2 border-b px-2.5 py-1.5">
+      <div className="flex items-center justify-between gap-2 border-b bg-muted/40 px-2.5 py-1.5">
         <div className="flex items-center gap-2">
-          <span className="text-muted-foreground text-xs font-medium">
+          <span className="text-xs font-medium text-muted-foreground">
             {tc("documentCount", { count: ready.length })}
           </span>
           {selected.length > 0 && (
@@ -77,22 +77,22 @@ export function DocumentPicker({ documents, selected, onChange }: Props) {
       <ScrollArea className="max-h-44">
         <ul className="divide-y">
           {ready.map((doc) => {
-            const active = selected.includes(doc.id);
+            const active = selected.includes(doc.id)
             return (
               <li key={doc.id}>
-                <label className="hover:bg-accent/50 flex w-full cursor-pointer items-center gap-2.5 px-2.5 py-2 text-start transition-colors">
+                <label className="flex w-full cursor-pointer items-center gap-2.5 px-2.5 py-2 text-start transition-colors hover:bg-accent/50">
                   <Checkbox
                     checked={active}
                     onCheckedChange={() => toggle(doc.id)}
                   />
-                  <FileTextIcon className="text-muted-foreground size-3.5 shrink-0" />
+                  <FileTextIcon className="size-3.5 shrink-0 text-muted-foreground" />
                   <span className="truncate text-xs">{doc.filename}</span>
                 </label>
               </li>
-            );
+            )
           })}
         </ul>
       </ScrollArea>
     </div>
-  );
+  )
 }

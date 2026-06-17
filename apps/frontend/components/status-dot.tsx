@@ -1,14 +1,14 @@
-import { cn } from "@/lib/utils";
-import type { OverallStatus } from "@/lib/types";
+import { cn } from "@/lib/utils"
+import type { OverallStatus } from "@/lib/types"
 
-type DotStatus = OverallStatus | "up" | "down";
+type DotStatus = OverallStatus | "up" | "down"
 
 const DOT_COLOR: Record<DotStatus, string> = {
   operational: "bg-emerald-500",
   up: "bg-emerald-500",
   degraded: "bg-amber-500",
   down: "bg-red-500",
-};
+}
 
 /** A small colored status dot, pulsing when not fully healthy. */
 export function StatusDot({
@@ -16,11 +16,11 @@ export function StatusDot({
   className,
   pulse,
 }: {
-  status: DotStatus;
-  className?: string;
-  pulse?: boolean;
+  status: DotStatus
+  className?: string
+  pulse?: boolean
 }) {
-  const animate = pulse ?? (status === "degraded" || status === "down");
+  const animate = pulse ?? (status === "degraded" || status === "down")
   return (
     <span className={cn("relative flex size-2.5 shrink-0", className)}>
       {animate && (
@@ -38,5 +38,5 @@ export function StatusDot({
         )}
       />
     </span>
-  );
+  )
 }

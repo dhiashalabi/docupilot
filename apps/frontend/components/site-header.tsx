@@ -1,13 +1,13 @@
-import { Separator } from "@/components/ui/separator";
-import { SidebarTrigger } from "@/components/ui/sidebar";
-import { getTranslations } from "next-intl/server";
+import { Separator } from "@/components/ui/separator"
+import { SidebarTrigger } from "@/components/ui/sidebar"
+import { getTranslations } from "next-intl/server"
 
-import { LocaleSwitcher } from "@/components/locale-switcher";
-import { ModeToggle } from "@/components/mode-toggle";
-import { SystemHealth } from "@/components/system-health";
+import { LocaleSwitcher } from "@/components/locale-switcher"
+import { ModeToggle } from "@/components/mode-toggle"
+import { SystemHealth } from "@/components/system-health"
 
 export async function SiteHeader() {
-  const t = await getTranslations("common");
+  const t = await getTranslations("common")
 
   return (
     <header className="flex h-(--header-height) shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">
@@ -25,5 +25,5 @@ export async function SiteHeader() {
         </div>
       </div>
     </header>
-  );
+  )
 }

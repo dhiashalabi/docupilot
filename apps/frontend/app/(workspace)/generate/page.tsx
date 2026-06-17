@@ -1,8 +1,8 @@
-"use client";
+"use client"
 
-import * as React from "react";
-import { toast } from "sonner";
-import { useTranslations } from "next-intl";
+import * as React from "react"
+import { toast } from "sonner"
+import { useTranslations } from "next-intl"
 import {
   SparklesIcon,
   FileDownIcon,
@@ -12,97 +12,98 @@ import {
   CheckIcon,
   EyeIcon,
   PencilIcon,
-} from "lucide-react";
+} from "lucide-react"
 
-import { api } from "@/lib/api";
-import { useDocuments, useSummarize, useGeneratePdf } from "@/lib/queries";
-import { DocumentPicker } from "@/components/document-picker";
-import { PageHeader } from "@/components/page-header";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Spinner } from "@/components/ui/spinner";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { api } from "@/lib/api"
+import { useDocuments, useSummarize, useGeneratePdf } from "@/lib/queries"
+import { DocumentPicker } from "@/components/document-picker"
+import { PageHeader } from "@/components/page-header"
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Spinner } from "@/components/ui/spinner"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Field,
   FieldDescription,
   FieldGroup,
   FieldLabel,
-} from "@/components/ui/field";
+} from "@/components/ui/field"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from "@/components/ui/toggle-group";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 export default function GeneratePage() {
-  const t = useTranslations("generate");
-  const tc = useTranslations("common");
-  const te = useTranslations("errors");
-  const tt = useTranslations("toasts");
+  const t = useTranslations("generate")
+  const tc = useTranslations("common")
+  const te = useTranslations("errors")
+  const tt = useTranslations("toasts")
 
-  const { data: documents } = useDocuments();
-  const summarizeMutation = useSummarize();
-  const generatePdfMutation = useGeneratePdf();
+  const { data: documents } = useDocuments()
+  const summarizeMutation = useSummarize()
+  const generatePdfMutation = useGeneratePdf()
 
-  const [selected, setSelected] = React.useState<string[]>([]);
-  const [instruction, setInstruction] = React.useState("");
-  const [title, setTitle] = React.useState("");
-  const [markdown, setMarkdown] = React.useState("");
-  const [copied, setCopied] = React.useState(false);
-  const [view, setView] = React.useState<"edit" | "preview">("edit");
-  const [activeTab, setActiveTab] = React.useState("summarize");
+  const [selected, setSelected] = React.useState<string[]>([])
+  const [instruction, setInstruction] = React.useState("")
+  const [title, setTitle] = React.useState("")
+  const [markdown, setMarkdown] = React.useState("")
+  const [copied, setCopied] = React.useState(false)
+  const [view, setView] = React.useState<"edit" | "preview">("edit")
+  const [activeTab, setActiveTab] = React.useState("summarize")
 
-  const summarizing = summarizeMutation.isPending;
-  const generating = generatePdfMutation.isPending;
+  const summarizing = summarizeMutation.isPending
+  const generating = generatePdfMutation.isPending
 
   const summarize = async () => {
     if (!selected.length) {
-      toast.error(t("selectDocument"));
-      return;
+      toast.error(t("selectDocument"))
+      return
     }
     try {
       const { summary } = await summarizeMutation.mutateAsync({
         document_ids: selected,
         instruction: instruction.trim() || undefined,
-      });
-      setMarkdown(summary);
-      if (!title) setTitle(t("defaultSummaryTitle"));
-      toast.success(tt("summaryGenerated"));
-      setActiveTab("export");
+      })
+      setMarkdown(summary)
+      if (!title) setTitle(t("defaultSummaryTitle"))
+      toast.success(tt("summaryGenerated"))
+      setActiveTab("export")
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : te("summaryFailed"));
+      toast.error(e instanceof Error ? e.message : te("summaryFailed"))
     }
-  };
+  }
 
   const generate = async () => {
     if (!title.trim() || !markdown.trim()) {
-      toast.error(t("titleContentRequired"));
-      return;
+      toast.error(t("titleContentRequired"))
+      return
     }
     try {
       const record = await generatePdfMutation.mutateAsync({
         title: title.trim(),
         markdown,
-      });
-      toast.success(tt("pdfGenerated"));
-      window.open(api.downloadPdfUrl(record.id), "_blank");
+      })
+      toast.success(tt("pdfGenerated"))
+      window.open(api.downloadPdfUrl(record.id), "_blank")
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : te("pdfGenerationFailed"));
+      toast.error(e instanceof Error ? e.message : te("pdfGenerationFailed"))
     }
-  };
+  }
 
   const copyMarkdown = async () => {
-    if (!markdown.trim()) return;
+    if (!markdown.trim()) return
     try {
-      await navigator.clipboard.writeText(markdown);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      await navigator.clipboard.writeText(markdown)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
     } catch {
-      toast.error(te("copyFailed"));
+      toast.error(te("copyFailed"))
     }
-  };
+  }
 
   return (
     <div className="flex flex-1 flex-col overflow-y-auto px-4 py-5 lg:px-6">
@@ -138,7 +139,9 @@ export default function GeneratePage() {
               </Field>
 
               <Field>
-                <FieldLabel htmlFor="instruction">{t("instructions")}</FieldLabel>
+                <FieldLabel htmlFor="instruction">
+                  {t("instructions")}
+                </FieldLabel>
                 <FieldDescription>{t("instructionsDesc")}</FieldDescription>
                 <Input
                   id="instruction"
@@ -200,9 +203,7 @@ export default function GeneratePage() {
                         {tc("copy")}
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent>
-                      {t("copyTooltip")}
-                    </TooltipContent>
+                    <TooltipContent>{t("copyTooltip")}</TooltipContent>
                   </Tooltip>
                   <ToggleGroup
                     type="single"
@@ -237,13 +238,13 @@ export default function GeneratePage() {
                   className="min-h-[350px] resize-y font-mono text-sm leading-relaxed"
                 />
               ) : (
-                <div className="bg-muted/30 min-h-[350px] overflow-y-auto rounded-lg border p-4">
+                <div className="min-h-[350px] overflow-y-auto rounded-lg border bg-muted/30 p-4">
                   {markdown.trim() ? (
-                    <pre className="text-sm leading-relaxed whitespace-pre-wrap wrap-break-word font-sans">
+                    <pre className="font-sans text-sm leading-relaxed wrap-break-word whitespace-pre-wrap">
                       {markdown}
                     </pre>
                   ) : (
-                    <p className="text-muted-foreground text-sm">
+                    <p className="text-sm text-muted-foreground">
                       {t("nothingToPreview")}
                     </p>
                   )}
@@ -265,5 +266,5 @@ export default function GeneratePage() {
         </TabsContent>
       </Tabs>
     </div>
-  );
+  )
 }

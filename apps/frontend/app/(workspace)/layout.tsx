@@ -1,19 +1,16 @@
-import {
-  SidebarInset,
-  SidebarProvider,
-} from "@/components/ui/sidebar";
-import { getLocale } from "next-intl/server";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
+import { getLocale } from "next-intl/server"
 
-import { WorkspaceSidebar } from "@/components/workspace-sidebar";
-import { SiteHeader } from "@/components/site-header";
+import { WorkspaceSidebar } from "@/components/workspace-sidebar"
+import { SiteHeader } from "@/components/site-header"
 
 export default async function WorkspaceLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: React.ReactNode
 }) {
-  const locale = await getLocale();
-  const isRTL = locale === "ar";
+  const locale = await getLocale()
+  const isRTL = locale === "ar"
 
   return (
     <SidebarProvider
@@ -30,5 +27,5 @@ export default async function WorkspaceLayout({
         <div className="flex flex-1 flex-col overflow-hidden">{children}</div>
       </SidebarInset>
     </SidebarProvider>
-  );
+  )
 }

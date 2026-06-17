@@ -1,10 +1,10 @@
-"use client";
+"use client"
 
-import * as React from "react";
-import { toast } from "sonner";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import * as React from "react"
+import { toast } from "sonner"
+import Link from "next/link"
+import { usePathname, useRouter } from "next/navigation"
+import { useTranslations } from "next-intl"
 import {
   FilesIcon,
   MessageSquareTextIcon,
@@ -16,11 +16,11 @@ import {
   MoreHorizontalIcon,
   CircleHelpIcon,
   Settings2Icon,
-} from "lucide-react";
+} from "lucide-react"
 
-import { useChats, useCreateChat, useDeleteChat } from "@/lib/queries";
-import type { ChatRead } from "@/lib/types";
-import { useDirection } from "@/components/ui/direction";
+import { useChats, useCreateChat, useDeleteChat } from "@/lib/queries"
+import type { ChatRead } from "@/lib/types"
+import { useDirection } from "@/components/ui/direction"
 import {
   Sidebar,
   SidebarContent,
@@ -32,14 +32,14 @@ import {
   SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar";
+} from "@/components/ui/sidebar"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "@/components/ui/dropdown-menu"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,64 +49,66 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Skeleton } from "@/components/ui/skeleton";
+} from "@/components/ui/alert-dialog"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export function WorkspaceSidebar({
   ...props
 }: React.ComponentProps<typeof Sidebar>) {
-  const pathname = usePathname();
-  const router = useRouter();
-  const direction = useDirection();
-  const isRtl = direction === "rtl";
-  const t = useTranslations();
+  const pathname = usePathname()
+  const router = useRouter()
+  const direction = useDirection()
+  const isRtl = direction === "rtl"
+  const t = useTranslations()
 
-  const { data: chatsData, isPending } = useChats();
-  const createChatMutation = useCreateChat();
-  const deleteChatMutation = useDeleteChat();
+  const { data: chatsData, isPending } = useChats()
+  const createChatMutation = useCreateChat()
+  const deleteChatMutation = useDeleteChat()
 
-  const [pendingDelete, setPendingDelete] = React.useState<ChatRead | null>(null);
+  const [pendingDelete, setPendingDelete] = React.useState<ChatRead | null>(
+    null
+  )
 
   const mainNav = [
     { title: t("nav.chats"), url: "/", icon: MessageSquareTextIcon },
     { title: t("nav.documents"), url: "/documents", icon: FilesIcon },
     { title: t("nav.search"), url: "/search", icon: SearchIcon },
     { title: t("nav.generate"), url: "/generate", icon: FileOutputIcon },
-  ];
+  ]
 
   const secondaryNav = [
     { title: t("nav.help"), url: "#", icon: CircleHelpIcon },
     { title: t("nav.settings"), url: "#", icon: Settings2Icon },
-  ];
+  ]
 
   const createChat = async () => {
     try {
       const chat = await createChatMutation.mutateAsync({
         title: null,
         document_ids: [],
-      });
-      router.push(`/chat/${chat.id}`);
+      })
+      router.push(`/chat/${chat.id}`)
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : t("errors.createChatFailed"));
+      toast.error(e instanceof Error ? e.message : t("errors.createChatFailed"))
     }
-  };
+  }
 
   const confirmDelete = async () => {
-    if (!pendingDelete) return;
-    const id = pendingDelete.id;
-    setPendingDelete(null);
+    if (!pendingDelete) return
+    const id = pendingDelete.id
+    setPendingDelete(null)
     try {
-      await deleteChatMutation.mutateAsync(id);
+      await deleteChatMutation.mutateAsync(id)
       if (pathname === `/chat/${id}`) {
-        router.push("/");
+        router.push("/")
       }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : t("errors.deleteFailed"));
+      toast.error(e instanceof Error ? e.message : t("errors.deleteFailed"))
     }
-  };
+  }
 
-  const loading = isPending && !chatsData;
-  const recentChats = (chatsData ?? []).slice(0, 8);
+  const loading = isPending && !chatsData
+  const recentChats = (chatsData ?? []).slice(0, 8)
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -148,7 +150,7 @@ export function WorkspaceSidebar({
                 const active =
                   item.url === "/"
                     ? pathname === "/"
-                    : pathname.startsWith(item.url);
+                    : pathname.startsWith(item.url)
                 return (
                   <SidebarMenuItem key={item.url}>
                     <SidebarMenuButton
@@ -162,7 +164,7 @@ export function WorkspaceSidebar({
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
-                );
+                )
               })}
             </SidebarMenu>
           </SidebarGroupContent>
@@ -185,7 +187,7 @@ export function WorkspaceSidebar({
             <SidebarGroupLabel>{t("nav.recentChats")}</SidebarGroupLabel>
             <SidebarMenu>
               {recentChats.map((chat: ChatRead) => {
-                const active = pathname === `/chat/${chat.id}`;
+                const active = pathname === `/chat/${chat.id}`
                 return (
                   <SidebarMenuItem key={chat.id}>
                     <SidebarMenuButton asChild isActive={active}>
@@ -228,11 +230,14 @@ export function WorkspaceSidebar({
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </SidebarMenuItem>
-                );
+                )
               })}
               {(chatsData?.length ?? 0) > 8 && (
                 <SidebarMenuItem>
-                  <SidebarMenuButton asChild className="text-sidebar-foreground/70">
+                  <SidebarMenuButton
+                    asChild
+                    className="text-sidebar-foreground/70"
+                  >
                     <Link href="/">
                       <MoreHorizontalIcon className="text-sidebar-foreground/70" />
                       <span>{t("nav.viewAll")}</span>
@@ -287,5 +292,5 @@ export function WorkspaceSidebar({
         </AlertDialogContent>
       </AlertDialog>
     </Sidebar>
-  );
+  )
 }

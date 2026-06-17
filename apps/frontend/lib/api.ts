@@ -14,24 +14,24 @@ import type {
   SearchHit,
   StreamEvent,
   SystemHealth,
-} from "@/lib/types";
+} from "@/lib/types"
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-const PREFIX = `${BASE}/api/v1`;
+const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
+const PREFIX = `${BASE}/api/v1`
 
 /** Typed error thrown by all API helpers — carries the HTTP status code. */
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
-    message: string,
+    message: string
   ) {
-    super(message);
-    this.name = "ApiError";
+    super(message)
+    this.name = "ApiError"
   }
 
   /** True for any 4xx status — used to suppress retries. */
   get isClientError() {
-    return this.status >= 400 && this.status < 500;
+    return this.status >= 400 && this.status < 500
   }
 }
 
@@ -39,19 +39,19 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${PREFIX}${path}`, {
     headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
     ...init,
-  });
+  })
   if (!res.ok) {
-    let detail = res.statusText;
+    let detail = res.statusText
     try {
-      const body = await res.json();
-      detail = body.detail ?? detail;
+      const body = await res.json()
+      detail = body.detail ?? detail
     } catch {
       /* ignore */
     }
-    throw new ApiError(res.status, detail);
+    throw new ApiError(res.status, detail)
   }
-  if (res.status === 204) return undefined as T;
-  return res.json() as Promise<T>;
+  if (res.status === 204) return undefined as T
+  return res.json() as Promise<T>
 }
 
 export const api = {
@@ -69,20 +69,23 @@ export const api = {
   deleteDocument: (id: string) =>
     request<void>(`/documents/${id}`, { method: "DELETE" }),
   uploadDocument: async (file: File): Promise<DocumentRead> => {
-    const form = new FormData();
-    form.append("file", file);
-    const res = await fetch(`${PREFIX}/documents`, { method: "POST", body: form });
+    const form = new FormData()
+    form.append("file", file)
+    const res = await fetch(`${PREFIX}/documents`, {
+      method: "POST",
+      body: form,
+    })
     if (!res.ok) {
-      let detail = res.statusText;
+      let detail = res.statusText
       try {
-        const body = await res.json();
-        detail = body.detail ?? detail;
+        const body = await res.json()
+        detail = body.detail ?? detail
       } catch {
         /* ignore */
       }
-      throw new ApiError(res.status, detail);
+      throw new ApiError(res.status, detail)
     }
-    return res.json();
+    return res.json()
   },
 
   // --- Chats ---
@@ -92,15 +95,23 @@ export const api = {
     request<ChatRead>("/chats", { method: "POST", body: JSON.stringify(body) }),
   updateChat: (
     id: string,
-    body: { title?: string | null; document_ids?: string[] | null },
-  ) => request<ChatRead>(`/chats/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
-  deleteChat: (id: string) => request<void>(`/chats/${id}`, { method: "DELETE" }),
+    body: { title?: string | null; document_ids?: string[] | null }
+  ) =>
+    request<ChatRead>(`/chats/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  deleteChat: (id: string) =>
+    request<void>(`/chats/${id}`, { method: "DELETE" }),
   listMessages: (chatId: string) =>
     request<MessageRead[]>(`/chats/${chatId}/messages`),
 
   // --- Search ---
   search: (body: { query: string; document_ids?: string[]; top_k?: number }) =>
-    request<SearchHit[]>("/search", { method: "POST", body: JSON.stringify(body) }),
+    request<SearchHit[]>("/search", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
 
   // --- Generate ---
   summarize: (body: { document_ids: string[]; instruction?: string }) =>
@@ -108,14 +119,18 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
-  generatePdf: (body: { title: string; markdown: string; chat_id?: string | null }) =>
+  generatePdf: (body: {
+    title: string
+    markdown: string
+    chat_id?: string | null
+  }) =>
     request<GeneratedPdfRead>("/generate/pdf", {
       method: "POST",
       body: JSON.stringify(body),
     }),
   listPdfs: () => request<GeneratedPdfRead[]>("/generate/pdf"),
   downloadPdfUrl: (id: string) => `${PREFIX}/generate/pdf/${id}/download`,
-};
+}
 
 /**
  * Stream a chat answer via Server-Sent Events. Invokes `onEvent` for each
@@ -125,35 +140,35 @@ export async function streamMessage(
   chatId: string,
   content: string,
   onEvent: (event: StreamEvent) => void,
-  signal?: AbortSignal,
+  signal?: AbortSignal
 ): Promise<void> {
   const res = await fetch(`${PREFIX}/chats/${chatId}/messages/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ content }),
     signal,
-  });
+  })
   if (!res.ok || !res.body) {
-    throw new Error("Failed to start message stream");
+    throw new Error("Failed to start message stream")
   }
 
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ""
 
   while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const parts = buffer.split("\n\n");
-    buffer = parts.pop() ?? "";
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const parts = buffer.split("\n\n")
+    buffer = parts.pop() ?? ""
     for (const part of parts) {
-      const line = part.trim();
-      if (!line.startsWith("data:")) continue;
-      const json = line.slice(5).trim();
-      if (!json) continue;
+      const line = part.trim()
+      if (!line.startsWith("data:")) continue
+      const json = line.slice(5).trim()
+      if (!json) continue
       try {
-        onEvent(JSON.parse(json) as StreamEvent);
+        onEvent(JSON.parse(json) as StreamEvent)
       } catch {
         /* ignore malformed event */
       }

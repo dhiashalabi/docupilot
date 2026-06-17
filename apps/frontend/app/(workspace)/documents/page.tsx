@@ -1,8 +1,8 @@
-"use client";
+"use client"
 
-import * as React from "react";
-import { toast } from "sonner";
-import { useTranslations } from "next-intl";
+import * as React from "react"
+import { toast } from "sonner"
+import { useTranslations } from "next-intl"
 import {
   Trash2Icon,
   UploadCloudIcon,
@@ -14,7 +14,7 @@ import {
   RefreshCwIcon,
   AlertCircleIcon,
   CheckCircle2Icon,
-} from "lucide-react";
+} from "lucide-react"
 
 import {
   useDocuments,
@@ -22,29 +22,29 @@ import {
   useUploadDocument,
   useReingestDocument,
   useDeleteDocument,
-} from "@/lib/queries";
-import type { DocumentRead } from "@/lib/types";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Skeleton } from "@/components/ui/skeleton";
+} from "@/lib/queries"
+import type { DocumentRead } from "@/lib/types"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Card } from "@/components/ui/card"
+import { Progress } from "@/components/ui/progress"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@/components/ui/empty";
-import { StatusDot } from "@/components/status-dot";
-import { PageHeader } from "@/components/page-header";
+} from "@/components/ui/empty"
+import { StatusDot } from "@/components/status-dot"
+import { PageHeader } from "@/components/page-header"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "@/components/ui/dropdown-menu"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -54,13 +54,13 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { cn } from "@/lib/utils";
+} from "@/components/ui/alert-dialog"
+import { cn } from "@/lib/utils"
 
 function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
 function formatDate(iso: string): string {
@@ -69,7 +69,7 @@ function formatDate(iso: string): string {
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  });
+  })
 }
 
 const STATUS_DOT: Record<DocumentRead["status"], "up" | "degraded" | "down"> = {
@@ -77,36 +77,36 @@ const STATUS_DOT: Record<DocumentRead["status"], "up" | "degraded" | "down"> = {
   PROCESSING: "degraded",
   PENDING: "degraded",
   FAILED: "down",
-};
+}
 
 function StatusBadge({ status }: { status: DocumentRead["status"] }) {
-  const t = useTranslations("documents");
+  const t = useTranslations("documents")
   const labels: Record<DocumentRead["status"], string> = {
     READY: t("statusReady"),
     PROCESSING: t("statusProcessing"),
     PENDING: t("statusPending"),
     FAILED: t("statusFailed"),
-  };
+  }
 
   return (
     <Badge variant="outline" className="gap-1.5 font-medium">
       <StatusDot status={STATUS_DOT[status]} className="size-2" />
       {labels[status]}
     </Badge>
-  );
+  )
 }
 
 function JobProgress({ documentId }: { documentId: string }) {
-  const { data: job } = useDocumentJob(documentId);
-  const progress = job?.progress ?? 0;
+  const { data: job } = useDocumentJob(documentId)
+  const progress = job?.progress ?? 0
   return (
     <div className="mt-2 flex items-center gap-2">
       <Progress value={progress} className="h-1.5" />
-      <span className="text-muted-foreground w-9 shrink-0 text-right text-xs tabular-nums">
+      <span className="w-9 shrink-0 text-right text-xs text-muted-foreground tabular-nums">
         {progress}%
       </span>
     </div>
-  );
+  )
 }
 
 function DocumentCard({
@@ -114,22 +114,24 @@ function DocumentCard({
   onReingest,
   onDelete,
 }: {
-  doc: DocumentRead;
-  onReingest: (doc: DocumentRead) => void;
-  onDelete: (doc: DocumentRead) => void;
+  doc: DocumentRead
+  onReingest: (doc: DocumentRead) => void
+  onDelete: (doc: DocumentRead) => void
 }) {
-  const t = useTranslations("documents");
-  const tc = useTranslations("common");
+  const t = useTranslations("documents")
+  const tc = useTranslations("common")
 
   return (
     <Card className="flex-row items-center gap-3.5 px-4 py-3 transition-shadow hover:shadow-sm">
-      <div className="bg-muted flex size-10 shrink-0 items-center justify-center rounded-lg">
-        <FileTextIcon className="text-muted-foreground size-5" />
+      <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted">
+        <FileTextIcon className="size-5 text-muted-foreground" />
       </div>
 
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium leading-tight">{doc.filename}</p>
-        <div className="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
+        <p className="truncate text-sm leading-tight font-medium">
+          {doc.filename}
+        </p>
+        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
           <span>{formatSize(doc.size_bytes)}</span>
           {doc.page_count && (
             <>
@@ -147,7 +149,7 @@ function DocumentCard({
           <span>{formatDate(doc.created_at)}</span>
         </div>
         {doc.status === "FAILED" && doc.error && (
-          <p className="text-destructive mt-1 truncate text-xs">{doc.error}</p>
+          <p className="mt-1 truncate text-xs text-destructive">{doc.error}</p>
         )}
         {(doc.status === "PROCESSING" || doc.status === "PENDING") && (
           <JobProgress documentId={doc.id} />
@@ -161,7 +163,7 @@ function DocumentCard({
           <Button
             variant="ghost"
             size="icon"
-            className="text-muted-foreground size-8 shrink-0"
+            className="size-8 shrink-0 text-muted-foreground"
             aria-label={t("documentActions")}
           >
             <MoreVerticalIcon className="size-4" />
@@ -183,68 +185,72 @@ function DocumentCard({
         </DropdownMenuContent>
       </DropdownMenu>
     </Card>
-  );
+  )
 }
 
 export default function DocumentsPage() {
-  const t = useTranslations("documents");
-  const tc = useTranslations("common");
-  const te = useTranslations("errors");
-  const tt = useTranslations("toasts");
+  const t = useTranslations("documents")
+  const tc = useTranslations("common")
+  const te = useTranslations("errors")
+  const tt = useTranslations("toasts")
 
-  const { data, isPending, isError, error, refetch } = useDocuments({ poll: true });
-  const uploadMutation = useUploadDocument();
-  const reingestMutation = useReingestDocument();
-  const deleteMutation = useDeleteDocument();
+  const { data, isPending, isError, error, refetch } = useDocuments({
+    poll: true,
+  })
+  const uploadMutation = useUploadDocument()
+  const reingestMutation = useReingestDocument()
+  const deleteMutation = useDeleteDocument()
 
-  const [dragOver, setDragOver] = React.useState(false);
-  const [pendingDelete, setPendingDelete] = React.useState<DocumentRead | null>(null);
-  const inputRef = React.useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = React.useState(false)
+  const [pendingDelete, setPendingDelete] = React.useState<DocumentRead | null>(
+    null
+  )
+  const inputRef = React.useRef<HTMLInputElement>(null)
 
-  const uploading = uploadMutation.isPending;
+  const uploading = uploadMutation.isPending
 
   const upload = React.useCallback(
     async (files: FileList | null) => {
-      if (!files?.length) return;
+      if (!files?.length) return
       for (const file of Array.from(files)) {
         if (file.type !== "application/pdf") {
-          toast.error(te("notPdf", { filename: file.name }));
-          continue;
+          toast.error(te("notPdf", { filename: file.name }))
+          continue
         }
         try {
-          await uploadMutation.mutateAsync(file);
-          toast.success(tt("uploaded", { filename: file.name }));
+          await uploadMutation.mutateAsync(file)
+          toast.success(tt("uploaded", { filename: file.name }))
         } catch (e) {
-          toast.error(e instanceof Error ? e.message : te("uploadFailed"));
+          toast.error(e instanceof Error ? e.message : te("uploadFailed"))
         }
       }
     },
-    [uploadMutation, te, tt],
-  );
+    [uploadMutation, te, tt]
+  )
 
   const reingest = async (doc: DocumentRead) => {
     try {
-      await reingestMutation.mutateAsync(doc.id);
-      toast.success(tt("reingesting", { filename: doc.filename }));
+      await reingestMutation.mutateAsync(doc.id)
+      toast.success(tt("reingesting", { filename: doc.filename }))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : te("reingestFailed"));
+      toast.error(e instanceof Error ? e.message : te("reingestFailed"))
     }
-  };
+  }
 
   const confirmDelete = async () => {
-    if (!pendingDelete) return;
-    const doc = pendingDelete;
-    setPendingDelete(null);
+    if (!pendingDelete) return
+    const doc = pendingDelete
+    setPendingDelete(null)
     try {
-      await deleteMutation.mutateAsync(doc.id);
-      toast.success(tt("deletedDocument", { filename: doc.filename }));
+      await deleteMutation.mutateAsync(doc.id)
+      toast.success(tt("deletedDocument", { filename: doc.filename }))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : te("deleteFailed"));
+      toast.error(e instanceof Error ? e.message : te("deleteFailed"))
     }
-  };
+  }
 
-  const readyCount = data?.filter((d) => d.status === "READY").length ?? 0;
-  const totalCount = data?.length ?? 0;
+  const readyCount = data?.filter((d) => d.status === "READY").length ?? 0
+  const totalCount = data?.length ?? 0
 
   return (
     <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-4 py-5 lg:px-6">
@@ -269,33 +275,33 @@ export default function DocumentsPage() {
 
       <div
         onDragOver={(e) => {
-          e.preventDefault();
-          setDragOver(true);
+          e.preventDefault()
+          setDragOver(true)
         }}
         onDragLeave={() => setDragOver(false)}
         onDrop={(e) => {
-          e.preventDefault();
-          setDragOver(false);
-          void upload(e.dataTransfer.files);
+          e.preventDefault()
+          setDragOver(false)
+          void upload(e.dataTransfer.files)
         }}
         className={cn(
           "relative overflow-hidden rounded-xl border-2 border-dashed transition-all duration-300",
           dragOver
-            ? "border-primary bg-primary/5 scale-[1.01]"
-            : "border-border hover:border-muted-foreground/30",
+            ? "scale-[1.01] border-primary bg-primary/5"
+            : "border-border hover:border-muted-foreground/30"
         )}
       >
         <div className="flex flex-col items-center justify-center gap-4 px-6 py-10">
           <div
             className={cn(
               "flex size-14 items-center justify-center rounded-2xl transition-colors duration-300",
-              dragOver ? "bg-primary/15" : "bg-muted",
+              dragOver ? "bg-primary/15" : "bg-muted"
             )}
           >
             <UploadCloudIcon
               className={cn(
                 "size-7 transition-colors duration-300",
-                dragOver ? "text-primary" : "text-muted-foreground",
+                dragOver ? "text-primary" : "text-muted-foreground"
               )}
             />
           </div>
@@ -303,7 +309,9 @@ export default function DocumentsPage() {
             <p className="text-sm font-medium">
               {dragOver ? t("dropHere") : t("dragDrop")}
             </p>
-            <p className="text-muted-foreground mt-1 text-xs">{t("browseHint")}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {t("browseHint")}
+            </p>
           </div>
           <input
             ref={inputRef}
@@ -404,5 +412,5 @@ export default function DocumentsPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
-  );
+  )
 }

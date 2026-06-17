@@ -1,7 +1,7 @@
-"use client";
+"use client"
 
-import * as React from "react";
-import { useTranslations } from "next-intl";
+import * as React from "react"
+import { useTranslations } from "next-intl"
 import {
   RefreshCwIcon,
   CheckCircle2Icon,
@@ -13,23 +13,23 @@ import {
   BrainCircuitIcon,
   ActivityIcon,
   type LucideIcon,
-} from "lucide-react";
+} from "lucide-react"
 
-import { useSystemHealth } from "@/lib/queries";
+import { useSystemHealth } from "@/lib/queries"
 import type {
   ComponentStatus,
   OverallStatus,
   SystemComponent,
-} from "@/lib/types";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { StatusDot } from "@/components/status-dot";
+} from "@/lib/types"
+import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
+import { StatusDot } from "@/components/status-dot"
 import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
-} from "@/components/ui/hover-card";
+} from "@/components/ui/hover-card"
 
 const COMPONENT_ICON: Record<string, LucideIcon> = {
   api: ServerIcon,
@@ -37,30 +37,30 @@ const COMPONENT_ICON: Record<string, LucideIcon> = {
   redis: ListChecksIcon,
   worker: CpuIcon,
   model: BrainCircuitIcon,
-};
+}
 
 const OVERALL_TEXT: Record<OverallStatus, string> = {
   operational: "text-emerald-600 dark:text-emerald-400",
   degraded: "text-amber-600 dark:text-amber-400",
   down: "text-red-600 dark:text-red-400",
-};
+}
 
 const STATUS_TEXT: Record<ComponentStatus, string> = {
   up: "text-emerald-600 dark:text-emerald-400",
   down: "text-red-600 dark:text-red-400",
-};
+}
 
 export function SystemHealth() {
-  const t = useTranslations("health");
-  const { data, isPending: loading, refetch: refresh } = useSystemHealth();
-  const overall: OverallStatus = data?.status ?? "down";
-  const initialLoading = loading && !data;
+  const t = useTranslations("health")
+  const { data, isPending: loading, refetch: refresh } = useSystemHealth()
+  const overall: OverallStatus = data?.status ?? "down"
+  const initialLoading = loading && !data
 
   const OVERALL_LABEL: Record<OverallStatus, string> = {
     operational: t("operational"),
     degraded: t("degraded"),
     down: t("down"),
-  };
+  }
 
   const KNOWN_COMPONENTS: { key: string; name: string }[] = [
     { key: "api", name: t("api") },
@@ -68,16 +68,16 @@ export function SystemHealth() {
     { key: "redis", name: t("redis") },
     { key: "worker", name: t("worker") },
     { key: "model", name: t("model") },
-  ];
+  ]
 
   const components: SystemComponent[] = KNOWN_COMPONENTS.map((known) => {
-    const live = data?.components.find((c) => c.key === known.key);
+    const live = data?.components.find((c) => c.key === known.key)
     return {
       key: known.key,
       name: live?.name ?? known.name,
       status: live?.status ?? "down",
-    };
-  });
+    }
+  })
 
   return (
     <HoverCard openDelay={80} closeDelay={120}>
@@ -93,7 +93,9 @@ export function SystemHealth() {
           ) : (
             <StatusDot status={overall} />
           )}
-          <span className={cn("hidden text-xs sm:inline", OVERALL_TEXT[overall])}>
+          <span
+            className={cn("hidden text-xs sm:inline", OVERALL_TEXT[overall])}
+          >
             {initialLoading ? t("checking") : OVERALL_LABEL[overall]}
           </span>
         </Button>
@@ -102,21 +104,25 @@ export function SystemHealth() {
         <div className="flex items-center justify-between gap-2 px-3 py-2">
           <span className="flex items-center gap-2">
             <ActivityIcon className={cn("size-4", OVERALL_TEXT[overall])} />
-            <span className={cn("text-sm font-semibold", OVERALL_TEXT[overall])}>
+            <span
+              className={cn("text-sm font-semibold", OVERALL_TEXT[overall])}
+            >
               {initialLoading ? t("checking") : OVERALL_LABEL[overall]}
             </span>
           </span>
           <Button
             variant="ghost"
             size="icon"
-            className="text-muted-foreground size-6"
+            className="size-6 text-muted-foreground"
             onClick={() => void refresh()}
             aria-label={t("refresh")}
           >
-            <RefreshCwIcon className={cn("size-3.5", loading && "animate-spin")} />
+            <RefreshCwIcon
+              className={cn("size-3.5", loading && "animate-spin")}
+            />
           </Button>
         </div>
-        <div className="bg-border h-px" />
+        <div className="h-px bg-border" />
         {initialLoading ? (
           <div className="space-y-2 p-3">
             {[0, 1, 2, 3, 4].map((i) => (
@@ -126,8 +132,9 @@ export function SystemHealth() {
         ) : (
           <ul className="p-1.5">
             {components.map((c) => {
-              const Icon = COMPONENT_ICON[c.key] ?? ServerIcon;
-              const StatusIcon = c.status === "up" ? CheckCircle2Icon : XCircleIcon;
+              const Icon = COMPONENT_ICON[c.key] ?? ServerIcon
+              const StatusIcon =
+                c.status === "up" ? CheckCircle2Icon : XCircleIcon
               return (
                 <li
                   key={c.key}
@@ -144,14 +151,16 @@ export function SystemHealth() {
                     )}
                   >
                     <StatusIcon className="size-3.5" />
-                    {c.status === "up" ? t("componentOperational") : t("componentDown")}
+                    {c.status === "up"
+                      ? t("componentOperational")
+                      : t("componentDown")}
                   </span>
                 </li>
-              );
+              )
             })}
           </ul>
         )}
       </HoverCardContent>
     </HoverCard>
-  );
+  )
 }

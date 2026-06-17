@@ -1,8 +1,8 @@
-"use client";
+"use client"
 
-import * as React from "react";
-import { toast } from "sonner";
-import { useTranslations } from "next-intl";
+import * as React from "react"
+import { toast } from "sonner"
+import { useTranslations } from "next-intl"
 import {
   SquarePenIcon,
   MessageSquareTextIcon,
@@ -11,15 +11,15 @@ import {
   SparklesIcon,
   FileTextIcon,
   SearchIcon,
-} from "lucide-react";
+} from "lucide-react"
 
-import { useChats, useDeleteChat, useCreateChat } from "@/lib/queries";
-import type { ChatRead } from "@/lib/types";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
+import { useChats, useDeleteChat, useCreateChat } from "@/lib/queries"
+import type { ChatRead } from "@/lib/types"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Empty,
   EmptyContent,
@@ -27,7 +27,7 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@/components/ui/empty";
+} from "@/components/ui/empty"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,18 +37,20 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { relativeTime } from "@/lib/utils";
+} from "@/components/ui/alert-dialog"
+import { relativeTime } from "@/lib/utils"
 
 export default function ChatsHomePage() {
-  const router = useRouter();
-  const t = useTranslations();
+  const router = useRouter()
+  const t = useTranslations()
 
-  const { data: chatsData, isPending } = useChats();
-  const createChatMutation = useCreateChat();
-  const deleteChatMutation = useDeleteChat();
+  const { data: chatsData, isPending } = useChats()
+  const createChatMutation = useCreateChat()
+  const deleteChatMutation = useDeleteChat()
 
-  const [pendingDelete, setPendingDelete] = React.useState<ChatRead | null>(null);
+  const [pendingDelete, setPendingDelete] = React.useState<ChatRead | null>(
+    null
+  )
 
   const features = [
     {
@@ -66,35 +68,35 @@ export default function ChatsHomePage() {
       label: t("home.featureGenerateLabel"),
       desc: t("home.featureGenerateDesc"),
     },
-  ];
+  ]
 
   const createChat = async () => {
     try {
       const chat = await createChatMutation.mutateAsync({
         title: null,
         document_ids: [],
-      });
-      router.push(`/chat/${chat.id}`);
+      })
+      router.push(`/chat/${chat.id}`)
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : t("errors.createChatFailed"));
+      toast.error(e instanceof Error ? e.message : t("errors.createChatFailed"))
     }
-  };
+  }
 
   const confirmDelete = async () => {
-    if (!pendingDelete) return;
-    const chat = pendingDelete;
-    setPendingDelete(null);
+    if (!pendingDelete) return
+    const chat = pendingDelete
+    setPendingDelete(null)
     try {
-      await deleteChatMutation.mutateAsync(chat.id);
+      await deleteChatMutation.mutateAsync(chat.id)
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : t("errors.deleteFailed"));
+      toast.error(e instanceof Error ? e.message : t("errors.deleteFailed"))
     }
-  };
+  }
 
-  const recentChats = chatsData ?? [];
-  const loading = isPending && !chatsData;
-  const creating = createChatMutation.isPending;
-  const hasChats = recentChats.length > 0;
+  const recentChats = chatsData ?? []
+  const loading = isPending && !chatsData
+  const creating = createChatMutation.isPending
+  const hasChats = recentChats.length > 0
 
   if (loading) {
     return (
@@ -110,7 +112,7 @@ export default function ChatsHomePage() {
           </Card>
         ))}
       </div>
-    );
+    )
   }
 
   return (
@@ -121,9 +123,9 @@ export default function ChatsHomePage() {
             <EmptyHeader>
               <EmptyMedia
                 variant="icon"
-                className="bg-primary/10 size-16 rounded-2xl"
+                className="size-16 rounded-2xl bg-primary/10"
               >
-                <BotIcon className="text-primary size-8" />
+                <BotIcon className="size-8 text-primary" />
               </EmptyMedia>
               <EmptyTitle className="text-2xl">
                 {t("home.welcomeTitle")}
@@ -156,11 +158,11 @@ export default function ChatsHomePage() {
                     key={card.label}
                     className="items-center gap-2 p-4 text-center"
                   >
-                    <div className="bg-muted flex size-9 items-center justify-center rounded-lg">
-                      <card.icon className="text-muted-foreground size-4" />
+                    <div className="flex size-9 items-center justify-center rounded-lg bg-muted">
+                      <card.icon className="size-4 text-muted-foreground" />
                     </div>
                     <p className="text-xs font-medium">{card.label}</p>
-                    <p className="text-muted-foreground text-[11px] leading-tight">
+                    <p className="text-[11px] leading-tight text-muted-foreground">
                       {card.desc}
                     </p>
                   </Card>
@@ -178,7 +180,7 @@ export default function ChatsHomePage() {
               <h1 className="text-lg font-semibold tracking-tight">
                 {t("nav.chats")}
               </h1>
-              <p className="text-muted-foreground text-xs">
+              <p className="text-xs text-muted-foreground">
                 {t("common.conversationCount", {
                   count: recentChats.length,
                 })}
@@ -201,14 +203,14 @@ export default function ChatsHomePage() {
                   key={chat.id}
                   className="group flex-row items-center gap-3 px-3 py-2.5 transition-shadow hover:shadow-sm"
                 >
-                  <div className="bg-muted flex size-8 shrink-0 items-center justify-center rounded-lg">
-                    <MessageSquareTextIcon className="text-muted-foreground size-3.5" />
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted">
+                    <MessageSquareTextIcon className="size-3.5 text-muted-foreground" />
                   </div>
                   <Link href={`/chat/${chat.id}`} className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">
                       {chat.title || t("common.untitledChat")}
                     </p>
-                    <p className="text-muted-foreground text-xs">
+                    <p className="text-xs text-muted-foreground">
                       {t("common.documentCount", {
                         count: chat.document_ids.length,
                       })}{" "}
@@ -218,7 +220,7 @@ export default function ChatsHomePage() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="text-muted-foreground hover:text-destructive size-7 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+                    className="size-7 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive"
                     onClick={() => setPendingDelete(chat)}
                     aria-label={t("home.deleteChatAria")}
                   >
@@ -256,5 +258,5 @@ export default function ChatsHomePage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
-  );
+  )
 }

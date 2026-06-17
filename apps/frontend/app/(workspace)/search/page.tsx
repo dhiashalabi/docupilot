@@ -1,8 +1,8 @@
-"use client";
+"use client"
 
-import * as React from "react";
-import { toast } from "sonner";
-import { useTranslations } from "next-intl";
+import * as React from "react"
+import { toast } from "sonner"
+import { useTranslations } from "next-intl"
 import {
   SearchIcon,
   Loader2Icon,
@@ -10,22 +10,22 @@ import {
   SparklesIcon,
   FilterIcon,
   XIcon,
-} from "lucide-react";
+} from "lucide-react"
 
-import { useDocuments, useSearch } from "@/lib/queries";
-import { DocumentPicker } from "@/components/document-picker";
-import type { SearchHit } from "@/lib/types";
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Kbd } from "@/components/ui/kbd";
+import { useDocuments, useSearch } from "@/lib/queries"
+import { DocumentPicker } from "@/components/document-picker"
+import type { SearchHit } from "@/lib/types"
+import { Badge } from "@/components/ui/badge"
+import { Card } from "@/components/ui/card"
+import { Progress } from "@/components/ui/progress"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Kbd } from "@/components/ui/kbd"
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
-} from "@/components/ui/input-group";
+} from "@/components/ui/input-group"
 import {
   Empty,
   EmptyContent,
@@ -33,44 +33,40 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@/components/ui/empty";
-import { PageHeader } from "@/components/page-header";
-import { cn } from "@/lib/utils";
+} from "@/components/ui/empty"
+import { PageHeader } from "@/components/page-header"
+import { cn } from "@/lib/utils"
 
 export default function SearchPage() {
-  const t = useTranslations("search");
-  const tc = useTranslations("common");
-  const te = useTranslations("errors");
+  const t = useTranslations("search")
+  const tc = useTranslations("common")
+  const te = useTranslations("errors")
 
-  const { data: documents } = useDocuments();
-  const searchMutation = useSearch();
+  const { data: documents } = useDocuments()
+  const searchMutation = useSearch()
 
-  const [query, setQuery] = React.useState("");
-  const [selected, setSelected] = React.useState<string[]>([]);
-  const [hits, setHits] = React.useState<SearchHit[] | null>(null);
-  const [showFilters, setShowFilters] = React.useState(false);
-  const inputRef = React.useRef<HTMLInputElement>(null);
+  const [query, setQuery] = React.useState("")
+  const [selected, setSelected] = React.useState<string[]>([])
+  const [hits, setHits] = React.useState<SearchHit[] | null>(null)
+  const [showFilters, setShowFilters] = React.useState(false)
+  const inputRef = React.useRef<HTMLInputElement>(null)
 
-  const loading = searchMutation.isPending;
+  const loading = searchMutation.isPending
 
-  const suggestions = [
-    t("suggestion1"),
-    t("suggestion2"),
-    t("suggestion3"),
-  ];
+  const suggestions = [t("suggestion1"), t("suggestion2"), t("suggestion3")]
 
   const run = async () => {
-    if (!query.trim()) return;
+    if (!query.trim()) return
     try {
       const results = await searchMutation.mutateAsync({
         query: query.trim(),
         document_ids: selected,
-      });
-      setHits(results);
+      })
+      setHits(results)
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : te("searchFailed"));
+      toast.error(e instanceof Error ? e.message : te("searchFailed"))
     }
-  };
+  }
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden px-4 py-5 lg:px-6">
@@ -120,15 +116,15 @@ export default function SearchPage() {
         </InputGroup>
 
         {showFilters && (
-          <Card className="animate-in fade-in slide-in-from-top-1 gap-3 p-3.5 duration-200">
+          <Card className="animate-in gap-3 p-3.5 duration-200 fade-in slide-in-from-top-1">
             <div className="flex items-center justify-between">
-              <p className="text-muted-foreground text-xs font-medium">
+              <p className="text-xs font-medium text-muted-foreground">
                 {t("filterByDocument")}
               </p>
               {selected.length > 0 && (
                 <button
                   onClick={() => setSelected([])}
-                  className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs transition-colors"
+                  className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
                 >
                   <XIcon className="size-3" />
                   {tc("clear")}
@@ -145,7 +141,7 @@ export default function SearchPage() {
 
         {selected.length > 0 && !showFilters && (
           <div className="flex items-center gap-2">
-            <span className="text-muted-foreground text-xs">
+            <span className="text-xs text-muted-foreground">
               {t("filtering")}
             </span>
             <Badge variant="secondary" className="gap-1 text-xs">
@@ -154,7 +150,7 @@ export default function SearchPage() {
             </Badge>
             <button
               onClick={() => setSelected([])}
-              className="text-muted-foreground hover:text-foreground text-xs transition-colors"
+              className="text-xs text-muted-foreground transition-colors hover:text-foreground"
             >
               {tc("clear")}
             </button>
@@ -191,10 +187,10 @@ export default function SearchPage() {
                   <Badge
                     key={suggestion}
                     variant="outline"
-                    className="hover:bg-accent hover:text-foreground cursor-pointer px-3 py-1 font-normal"
+                    className="cursor-pointer px-3 py-1 font-normal hover:bg-accent hover:text-foreground"
                     onClick={() => {
-                      setQuery(suggestion);
-                      inputRef.current?.focus();
+                      setQuery(suggestion)
+                      inputRef.current?.focus()
                     }}
                   >
                     {suggestion}
@@ -226,8 +222,8 @@ export default function SearchPage() {
                 className="gap-2 p-4 transition-shadow hover:shadow-sm"
               >
                 <div className="flex items-center gap-2">
-                  <div className="bg-muted flex size-7 items-center justify-center rounded-md">
-                    <FileTextIcon className="text-muted-foreground size-3.5" />
+                  <div className="flex size-7 items-center justify-center rounded-md bg-muted">
+                    <FileTextIcon className="size-3.5 text-muted-foreground" />
                   </div>
                   <span className="min-w-0 flex-1 truncate text-sm font-medium">
                     {hit.filename}
@@ -245,12 +241,12 @@ export default function SearchPage() {
                       value={Math.round(hit.score * 100)}
                       className={cn("h-1.5 w-12")}
                     />
-                    <span className="text-muted-foreground text-[11px] font-medium tabular-nums">
+                    <span className="text-[11px] font-medium text-muted-foreground tabular-nums">
                       {(hit.score * 100).toFixed(0)}%
                     </span>
                   </div>
                 </div>
-                <p className="text-muted-foreground line-clamp-3 text-sm leading-relaxed">
+                <p className="line-clamp-3 text-sm leading-relaxed text-muted-foreground">
                   {hit.content}
                 </p>
               </Card>
@@ -259,5 +255,5 @@ export default function SearchPage() {
         )}
       </div>
     </div>
-  );
+  )
 }

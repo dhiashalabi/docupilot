@@ -23,4 +23,4 @@ export const qk = {
 
   // Generated PDFs
   pdfs: ["pdfs"] as const,
-} as const;
+} as const
