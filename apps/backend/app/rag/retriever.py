@@ -69,7 +69,9 @@ async def retrieve(
     # Tune HNSW search breadth for this transaction (better recall).
     if settings.hnsw_ef_search:
         await session.execute(
-            text("SET LOCAL hnsw.ef_search = :ef").bindparams(ef=settings.hnsw_ef_search)
+            text("SELECT set_config('hnsw.ef_search', :ef, true)").bindparams(
+                ef=str(settings.hnsw_ef_search)
+            )
         )
 
     rows = (await session.execute(stmt)).all()
