@@ -89,6 +89,28 @@ export const api = {
   },
 
   // --- Chats ---
+  uploadChatDocument: async (
+    chatId: string,
+    file: File
+  ): Promise<DocumentRead> => {
+    const form = new FormData()
+    form.append("file", file)
+    const res = await fetch(`${PREFIX}/chats/${chatId}/documents`, {
+      method: "POST",
+      body: form,
+    })
+    if (!res.ok) {
+      let detail = res.statusText
+      try {
+        const body = await res.json()
+        detail = body.detail ?? detail
+      } catch {
+        /* ignore */
+      }
+      throw new ApiError(res.status, detail)
+    }
+    return res.json()
+  },
   listChats: () => request<ChatRead[]>("/chats"),
   getChat: (id: string) => request<ChatRead>(`/chats/${id}`),
   createChat: (body: { title?: string | null; document_ids: string[] }) =>

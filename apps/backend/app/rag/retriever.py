@@ -30,6 +30,19 @@ class RetrievedChunk:
     score: float
 
 
+def _apply_min_score(chunks: list[RetrievedChunk]) -> list[RetrievedChunk]:
+    """Drop chunks below the configured relevance floor.
+
+    Always keeps at least the top result so the context is never empty.
+    Set `retrieval_min_score = 0.0` to disable filtering entirely.
+    """
+    floor = settings.retrieval_min_score
+    if floor <= 0.0 or not chunks:
+        return chunks
+    filtered = [c for c in chunks if c.score >= floor]
+    return filtered if filtered else chunks[:1]
+
+
 async def retrieve(
     session: AsyncSession,
     query_embedding: list[float],
@@ -95,6 +108,6 @@ async def retrieve(
         for chunk, score in zip(candidates, scores, strict=False):
             chunk.score = score
         candidates.sort(key=lambda c: c.score, reverse=True)
-        return candidates[:k]
+        candidates = candidates[:k]
 
-    return candidates
+    return _apply_min_score(candidates)

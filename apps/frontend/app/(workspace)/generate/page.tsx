@@ -17,6 +17,7 @@ import {
 import { api } from "@/lib/api"
 import { useDocuments, useSummarize, useGeneratePdf } from "@/lib/queries"
 import { DocumentPicker } from "@/components/document-picker"
+import { Markdown } from "@/components/markdown"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -240,14 +241,13 @@ export default function GeneratePage() {
               ) : (
                 <div className="min-h-[350px] overflow-y-auto rounded-lg border bg-muted/30 p-4">
                   {markdown.trim() ? (
-                    <pre className="font-sans text-sm leading-relaxed wrap-break-word whitespace-pre-wrap">
-                      {markdown}
-                    </pre>
+                    <Markdown>{markdown}</Markdown>
                   ) : (
                     <p className="text-sm text-muted-foreground">
                       {t("nothingToPreview")}
                     </p>
                   )}
+                  0
                 </div>
               )}
             </Field>

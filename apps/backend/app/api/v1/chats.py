@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter
+from fastapi import APIRouter, UploadFile
 
 from app.deps import SessionDep
-from app.schemas import ChatCreate, ChatRead, ChatUpdate, MessageRead
-from app.services import chat_service
+from app.schemas import ChatCreate, ChatRead, ChatUpdate, DocumentRead, MessageRead
+from app.services import chat_service, document_service
+from app.workers.celery_app import celery_app
 
 router = APIRouter(prefix="/chats", tags=["chats"])
 
@@ -52,6 +53,26 @@ async def update_chat(chat_id: uuid.UUID, payload: ChatUpdate, session: SessionD
 @router.delete("/{chat_id}", status_code=204)
 async def delete_chat(chat_id: uuid.UUID, session: SessionDep) -> None:
     await chat_service.delete_chat(session, chat_id)
+
+
+@router.post("/{chat_id}/documents", response_model=DocumentRead, status_code=201)
+async def upload_document_to_chat(
+    chat_id: uuid.UUID, file: UploadFile, session: SessionDep
+) -> DocumentRead:
+    """Upload a new PDF and immediately link it to this chat.
+
+    The document is processed asynchronously (status starts as PENDING).
+    Poll GET /documents/{id}/job to track ingestion progress.
+    """
+    chat = await chat_service.get_chat(session, chat_id)
+    data = await file.read()
+    document = await document_service.create_document(
+        session, file.filename or "document.pdf", file.content_type, data
+    )
+    await session.flush()
+    await chat_service.add_document(session, chat, document.id)
+    celery_app.send_task("ingest_document", args=[str(document.id)])
+    return DocumentRead.model_validate(document)
 
 
 @router.get("/{chat_id}/messages", response_model=list[MessageRead])

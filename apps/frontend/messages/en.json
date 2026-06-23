@@ -93,7 +93,16 @@
     "renameChat": "Rename chat",
     "renameChatDescription": "Enter a new name for this conversation.",
     "chatTitlePlaceholder": "Chat title",
-    "renameChatSuccess": "Chat renamed"
+    "renameChatSuccess": "Chat renamed",
+    "scopeGlobal": "Answering from all documents",
+    "scopeScoped": "{count, plural, one {Answering from # attached document} other {Answering from # attached documents}}",
+    "attachDocuments": "Attach documents",
+    "uploadToChat": "Upload to chat",
+    "attachedDocuments": "Attached documents",
+    "processingDoc": "Processing…",
+    "detachDocument": "Detach",
+    "attachedUploaded": "Uploaded and attached {filename}",
+    "attachSaved": "Document scope updated"
   },
   "search": {
     "title": "Search",

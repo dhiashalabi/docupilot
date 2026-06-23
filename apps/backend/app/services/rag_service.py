@@ -106,6 +106,12 @@ async def answer_stream(session: AsyncSession, chat: Chat, question: str) -> Asy
     citations_out: list[dict] = []
     for n in cited:
         chunk = chunks[n - 1]
+        # Skip citations whose retrieval score fell below the relevance floor so
+        # that a mis-numbered [n] in the model's output cannot surface an
+        # irrelevant source. (The first chunk is never filtered to guarantee at
+        # least one citation is possible when the model is well-behaved.)
+        if n > 1 and chunk.score < settings.retrieval_min_score:
+            continue
         session.add(
             MessageCitation(
                 message_id=assistant_msg.id,

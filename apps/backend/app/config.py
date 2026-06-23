@@ -95,10 +95,16 @@ class Settings(BaseSettings):
     hnsw_ef_search: int | None = 64
     # Optional cross-encoder reranking. When enabled, retrieval over-fetches
     # `retrieval_top_k * rerank_overfetch` candidates and reranks them down to
-    # `retrieval_top_k`. Loads a reranker model in-process (off by default).
-    rerank_enabled: bool = False
+    # `retrieval_top_k`. Loads a reranker model in-process.
+    rerank_enabled: bool = True
     rerank_model: str = "BAAI/bge-reranker-v2-m3"
     rerank_overfetch: int = 4
+    # Minimum cosine-similarity score (0–1) a chunk must reach after reranking
+    # (or plain vector retrieval when reranking is off) to be included in the
+    # LLM context.  Chunks below the floor are silently dropped unless they
+    # would leave the context completely empty (safety fallback keeps the top
+    # result regardless).  0.0 disables filtering.
+    retrieval_min_score: float = 0.3
 
     @property
     def sync_database_url(self) -> str:

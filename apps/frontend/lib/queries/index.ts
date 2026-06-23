@@ -15,6 +15,7 @@ export {
   useDeleteChat,
   useUpdateChat,
 } from "@/lib/queries/mutations/chats"
+export { useUploadChatDocument } from "@/lib/queries/mutations/chat-documents"
 export { useSummarize, useGeneratePdf } from "@/lib/queries/mutations/generate"
 export { useSearch } from "@/lib/queries/mutations/search"
 export { qk } from "@/lib/queries/keys"

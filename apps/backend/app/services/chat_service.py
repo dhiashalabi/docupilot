@@ -85,6 +85,21 @@ async def delete_chat(session: AsyncSession, chat_id: uuid.UUID) -> None:
     await session.delete(chat)
 
 
+async def add_document(
+    session: AsyncSession, chat: Chat, document_id: uuid.UUID
+) -> None:
+    """Link a single document to a chat without disturbing existing links."""
+    existing = await session.scalars(
+        select(ChatDocument).where(
+            ChatDocument.chat_id == chat.id,
+            ChatDocument.document_id == document_id,
+        )
+    )
+    if existing.first() is None:
+        session.add(ChatDocument(chat_id=chat.id, document_id=document_id))
+        await session.flush()
+
+
 async def get_document_ids(session: AsyncSession, chat_id: uuid.UUID) -> list[uuid.UUID]:
     rows = await session.scalars(
         select(ChatDocument.document_id).where(ChatDocument.chat_id == chat_id)
