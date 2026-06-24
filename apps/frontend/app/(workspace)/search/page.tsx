@@ -50,6 +50,8 @@ export default function SearchPage() {
   const [hits, setHits] = React.useState<SearchHit[] | null>(null)
   const [showFilters, setShowFilters] = React.useState(false)
   const inputRef = React.useRef<HTMLInputElement>(null)
+  // Monotonic counter to discard responses from superseded requests.
+  const searchIdRef = React.useRef(0)
 
   const loading = searchMutation.isPending
 
@@ -57,14 +59,21 @@ export default function SearchPage() {
 
   const run = async () => {
     if (!query.trim()) return
+    const searchId = ++searchIdRef.current
+    setHits(null) // clear stale results immediately
     try {
       const results = await searchMutation.mutateAsync({
         query: query.trim(),
         document_ids: selected,
       })
-      setHits(results)
+      // Ignore if a newer search has been started since.
+      if (searchId === searchIdRef.current) {
+        setHits(results)
+      }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : te("searchFailed"))
+      if (searchId === searchIdRef.current) {
+        toast.error(e instanceof Error ? e.message : te("searchFailed"))
+      }
     }
   }
 

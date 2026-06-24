@@ -13,7 +13,7 @@ from app.core.exceptions import AppError, NotFoundError
 from app.domain.models import GeneratedPdf
 from app.pdf import generator
 from app.rag import context_assembler, embedder, retriever
-from app.storage import save_file
+from app.storage import delete_file, save_file
 
 
 async def search(
@@ -62,14 +62,18 @@ async def generate_pdf(
     )
     session.add(record)
     await session.flush()
+    key: str | None = None
     try:
-        pdf_bytes = generator.render_pdf(title, markdown, language)
-        key = save_file(pdf_bytes, suffix=".pdf")
+        pdf_bytes = await asyncio.to_thread(generator.render_pdf, title, markdown, language)
+        key = await asyncio.to_thread(save_file, pdf_bytes, ".pdf")
         record.storage_key = key
         record.status = "READY"
     except Exception as exc:  # noqa: BLE001
         record.status = "FAILED"
         record.error = str(exc)
+        # Remove any file that was written before the error.
+        if key is not None:
+            delete_file(key)
         raise AppError("PDF generation failed") from exc
     await session.flush()
     return record

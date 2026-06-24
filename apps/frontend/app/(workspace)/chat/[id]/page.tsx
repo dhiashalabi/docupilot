@@ -18,6 +18,8 @@ import {
   GlobeIcon,
   CopyIcon,
   CheckIcon,
+  AlertCircleIcon,
+  RefreshCwIcon,
 } from "lucide-react"
 
 import { streamMessage } from "@/lib/api"
@@ -50,9 +52,16 @@ import { DocumentPicker } from "@/components/document-picker"
 import { Markdown } from "@/components/markdown"
 import { cn } from "@/lib/utils"
 import { resolveTextDirection } from "@/lib/text-direction"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty"
 
 /* ------------------------------------------------------------------ */
-/*  Processing chip – polls job status for a single doc                */
+/*  Processing chip – polls job status and refreshes doc list on done  */
 /* ------------------------------------------------------------------ */
 
 function ProcessingChip({
@@ -63,11 +72,19 @@ function ProcessingChip({
   onDetach: () => void
 }) {
   const t = useTranslations("chat")
+  const queryClient = useQueryClient()
   const isProcessing = doc.status === "PENDING" || doc.status === "PROCESSING"
   const isFailed = doc.status === "FAILED"
 
-  // Poll the job while the doc is still being ingested
-  useDocumentJob(doc.id, isProcessing)
+  const { data: job } = useDocumentJob(doc.id, isProcessing)
+
+  // When a job reaches a terminal state, refresh the documents list so the
+  // chip status updates without requiring a manual reload.
+  React.useEffect(() => {
+    if (job?.status === "READY" || job?.status === "FAILED") {
+      void queryClient.invalidateQueries({ queryKey: qk.documents })
+    }
+  }, [job?.status, queryClient])
 
   return (
     <Badge
@@ -85,7 +102,7 @@ function ProcessingChip({
       )}
       <button
         onClick={onDetach}
-        className="ml-0.5 opacity-0 transition-opacity group-hover:opacity-100"
+        className="ml-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
         aria-label={t("detachDocument")}
       >
         <XIcon className="size-2.5" />
@@ -121,7 +138,7 @@ function CitationList({
             : t("sourceN", { n: i + 1 })
         return (
           <Badge
-            key={i}
+            key={`${i}-${"document_id" in c ? c.document_id : i}`}
             variant="outline"
             className="gap-1 rounded-md border-border/60 bg-background/50 px-2 py-0.5 text-[11px] font-normal text-muted-foreground backdrop-blur"
           >
@@ -153,14 +170,20 @@ function Bubble({
   isLoading?: boolean
 }) {
   const isUser = role === "user"
+  const te = useTranslations("errors")
   const [copied, setCopied] = React.useState(false)
 
   const handleCopy = () => {
     const text = typeof children === "string" ? children : ""
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    })
+    navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      })
+      .catch(() => {
+        toast.error(te("copyFailed"))
+      })
   }
 
   return (
@@ -227,7 +250,7 @@ function Bubble({
             className={cn(
               "flex",
               isUser
-                ? "justify-end opacity-0 transition-opacity group-hover:opacity-100"
+                ? "justify-end opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100"
                 : "justify-start"
             )}
           >
@@ -236,6 +259,7 @@ function Bubble({
               size="icon"
               className="h-6 w-6 text-muted-foreground hover:text-foreground"
               onClick={handleCopy}
+              aria-label="Copy message"
             >
               {copied ? (
                 <CheckIcon className="size-3" />
@@ -252,7 +276,12 @@ function Bubble({
 
 function TypingIndicator() {
   return (
-    <div className="flex items-center gap-1 px-1 py-1">
+    <div
+      role="status"
+      aria-live="polite"
+      aria-label="Assistant is typing"
+      className="flex items-center gap-1 px-1 py-1"
+    >
       {[0, 1, 2].map((i) => (
         <span
           key={i}
@@ -279,8 +308,13 @@ export default function ChatPage({
   const te = useTranslations("errors")
 
   const queryClient = useQueryClient()
-  const { data: chatData } = useChat(id)
-  const { data: messagesData, isPending: messagesLoading } = useMessages(id)
+  const { data: chatData, isError: chatError } = useChat(id)
+  const {
+    data: messagesData,
+    isPending: messagesLoading,
+    isError: messagesError,
+    refetch: refetchMessages,
+  } = useMessages(id)
   const { data: healthData } = useSystemHealth()
   const { data: allDocuments } = useDocuments()
 
@@ -295,9 +329,17 @@ export default function ChatPage({
   const uploadRef = React.useRef<HTMLInputElement>(null)
   const viewportRef = React.useRef<HTMLDivElement>(null)
   const textareaRef = React.useRef<HTMLTextAreaElement>(null)
+  // AbortController for the active stream — aborted on unmount or new send.
+  const abortRef = React.useRef<AbortController | null>(null)
+
+  // Abort any in-flight stream when the component unmounts.
+  React.useEffect(() => {
+    return () => {
+      abortRef.current?.abort()
+    }
+  }, [])
 
   // Derive picker selection directly from server data; no effect needed.
-  // The popover always opens with the current chat scope pre-checked.
   const derivedPickerSelected = chatData?.document_ids ?? []
   const [pickerOverride, setPickerOverride] = React.useState<string[] | null>(
     null
@@ -307,7 +349,7 @@ export default function ChatPage({
   const modelComponent = healthData?.components.find((c) => c.key === "model")
   const llmReady = modelComponent ? modelComponent.status === "up" : true
 
-  // Build the list of attached document objects for chips
+  // Build the list of attached document objects for chips.
   const attachedDocs: DocumentRead[] = React.useMemo(() => {
     if (!chatData?.document_ids.length || !allDocuments) return []
     return chatData.document_ids
@@ -351,10 +393,10 @@ export default function ChatPage({
         body: { document_ids: pickerSelected },
       })
       toast.success(t("attachSaved"))
-      setPickerOverride(null) // Let server state drive again
+      setPickerOverride(null)
       setAttachOpen(false)
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : te("deleteFailed"))
+      toast.error(e instanceof Error ? e.message : te("updateFailed"))
     }
   }
 
@@ -366,7 +408,7 @@ export default function ChatPage({
         body: { document_ids: newIds },
       })
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : te("deleteFailed"))
+      toast.error(e instanceof Error ? e.message : te("updateFailed"))
     }
   }
 
@@ -396,6 +438,11 @@ export default function ChatPage({
     setBusy(true)
     setStreaming({ text: "", citations: [] })
 
+    // Cancel any previous in-flight stream.
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+
     const optimisticMessage: MessageRead = {
       id: `tmp-${Date.now()}`,
       role: "user",
@@ -413,17 +460,23 @@ export default function ChatPage({
     let doneData: Extract<StreamEvent, { type: "done" }> | null = null
 
     try {
-      await streamMessage(id, content, (event: StreamEvent) => {
-        if (event.type === "token") {
-          streamedText += event.text
-          setStreaming({ text: streamedText, citations: [] })
-        } else if (event.type === "done") {
-          doneData = event
-          setStreaming({ text: streamedText, citations: event.citations })
-        } else if (event.type === "error") {
-          toast.error(event.detail)
-        }
-      })
+      await streamMessage(
+        id,
+        content,
+        (event: StreamEvent) => {
+          if (event.type === "token") {
+            streamedText += event.text
+            setStreaming({ text: streamedText, citations: [] })
+          } else if (event.type === "done") {
+            doneData = event
+            setStreaming({ text: streamedText, citations: event.citations })
+          } else if (event.type === "error") {
+            toast.error(event.detail)
+          }
+        },
+        controller.signal
+      )
+
       if (doneData) {
         const d = doneData as Extract<StreamEvent, { type: "done" }>
         const assistantMsg: MessageRead = {
@@ -434,6 +487,7 @@ export default function ChatPage({
           citations: d.citations.map((c) => ({
             document_id: c.document_id,
             chunk_id: null,
+            filename: c.filename,
             page_from: c.page_from,
             page_to: c.page_to,
             score: c.score,
@@ -450,15 +504,25 @@ export default function ChatPage({
       void queryClient.invalidateQueries({ queryKey: qk.chat(id) })
       void queryClient.invalidateQueries({ queryKey: qk.chats })
     } catch (e) {
+      // Ignore abort errors — user navigated away or sent a new message.
+      if ((e as Error).name === "AbortError") return
       toast.error(e instanceof Error ? e.message : te("sendMessageFailed"))
+      // Roll back the optimistic user message so the UI is consistent.
+      queryClient.setQueryData<MessageRead[]>(qk.messages(id), (prev) =>
+        (prev ?? []).filter((m) => m.id !== optimisticMessage.id)
+      )
       await queryClient.invalidateQueries({ queryKey: qk.messages(id) })
     } finally {
-      setStreaming(null)
-      setBusy(false)
-      setTimeout(() => textareaRef.current?.focus(), 0)
+      if (!controller.signal.aborted) {
+        abortRef.current = null
+        setStreaming(null)
+        setBusy(false)
+        setTimeout(() => textareaRef.current?.focus(), 0)
+      }
     }
   }
 
+  const inputDisabled = busy || !llmReady
   const initialLoading = messagesLoading && !messagesData
   const hasMessages = (messagesData?.length ?? 0) > 0 || streaming
 
@@ -475,7 +539,6 @@ export default function ChatPage({
               <h1 className="truncate text-sm leading-tight font-medium">
                 {displayChatTitle(chatData?.title, tc("untitledChat"))}
               </h1>
-              {/* Scope indicator */}
               <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
                 {isScoped ? (
                   t("scopeScoped", { count: chatData!.document_ids.length })
@@ -607,6 +670,24 @@ export default function ChatPage({
                 </div>
               ))}
             </>
+          ) : messagesError || chatError ? (
+            <Empty className="py-20">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <AlertCircleIcon className="text-destructive" />
+                </EmptyMedia>
+                <EmptyTitle>{te("loadFailed")}</EmptyTitle>
+                <EmptyDescription>{te("sendMessageFailed")}</EmptyDescription>
+              </EmptyHeader>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void refetchMessages()}
+              >
+                <RefreshCwIcon className="size-4" />
+                {tc("retry")}
+              </Button>
+            </Empty>
           ) : !hasMessages ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-4 py-20">
               <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10">
@@ -662,15 +743,16 @@ export default function ChatPage({
               }}
               placeholder={t("inputPlaceholder")}
               rows={1}
-              disabled={busy}
+              disabled={inputDisabled}
               className="max-h-[200px] min-h-[44px] resize-none border-0 bg-transparent px-3.5 py-3 text-sm leading-relaxed shadow-none focus-visible:ring-0 dark:bg-transparent"
             />
           </div>
           <Button
             onClick={() => void send()}
-            disabled={busy || !input.trim()}
+            disabled={inputDisabled || !input.trim()}
             size="icon"
             className="size-[44px] shrink-0 rounded-xl"
+            aria-label={t("sendHint")}
           >
             {busy ? (
               <Loader2Icon className="size-4 animate-spin" />

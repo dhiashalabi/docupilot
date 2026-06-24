@@ -57,7 +57,9 @@
     "pdfGenerationFailed": "فشل إنشاء PDF",
     "copyFailed": "تعذر النسخ إلى الحافظة",
     "notPdf": "{filename} ليس ملف PDF",
-    "renameChatFailed": "تعذرت إعادة تسمية المحادثة"
+    "renameChatFailed": "تعذرت إعادة تسمية المحادثة",
+    "updateFailed": "فشل التحديث",
+    "loadFailed": "تعذر تحميل المحتوى"
   },
   "toasts": {
     "uploaded": "تم رفع {filename}",

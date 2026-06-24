@@ -247,7 +247,6 @@ export default function GeneratePage() {
                       {t("nothingToPreview")}
                     </p>
                   )}
-                  0
                 </div>
               )}
             </Field>

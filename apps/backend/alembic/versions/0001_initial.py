@@ -38,9 +38,10 @@ def upgrade() -> None:
         sa.Column("language", sa.String(8)),
         sa.Column("status", sa.String(16), nullable=False, server_default="PENDING"),
         sa.Column("error", sa.Text()),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
     )
     op.create_index("ix_documents_status", "documents", ["status"])
+    op.create_index("ix_documents_created_at", "documents", ["created_at"])
 
     op.create_table(
         "document_chunks",
@@ -59,23 +60,26 @@ def upgrade() -> None:
         sa.Column("token_count", sa.Integer()),
         sa.Column("embedding", Vector(EMBED_DIM)),
         sa.Column("meta", postgresql.JSONB(), nullable=False, server_default="{}"),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.UniqueConstraint("document_id", "chunk_index", name="uq_chunk_doc_index"),
     )
     op.create_index("ix_document_chunks_document_id", "document_chunks", ["document_id"])
     # HNSW index for fast approximate cosine similarity search.
+    # m=16, ef_construction=64 are sensible defaults for recall vs build-time.
     op.execute(
         "CREATE INDEX ix_document_chunks_embedding_hnsw "
-        "ON document_chunks USING hnsw (embedding vector_cosine_ops)"
+        "ON document_chunks USING hnsw (embedding vector_cosine_ops) "
+        "WITH (m = 16, ef_construction = 64)"
     )
 
     op.create_table(
         "chats",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
         sa.Column("title", sa.String(255)),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
     )
+    op.create_index("ix_chats_updated_at", "chats", ["updated_at"])
 
     op.create_table(
         "chat_documents",
@@ -106,9 +110,10 @@ def upgrade() -> None:
         sa.Column("content", sa.Text(), nullable=False),
         sa.Column("language", sa.String(8)),
         sa.Column("token_count", sa.Integer()),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
     )
     op.create_index("ix_messages_chat_id", "messages", ["chat_id"])
+    op.create_index("ix_messages_chat_id_created_at", "messages", ["chat_id", "created_at"])
 
     op.create_table(
         "message_citations",
@@ -135,6 +140,7 @@ def upgrade() -> None:
         sa.Column("score", sa.Float()),
     )
     op.create_index("ix_message_citations_message_id", "message_citations", ["message_id"])
+    op.create_index("ix_message_citations_document_id", "message_citations", ["document_id"])
 
     op.create_table(
         "generated_pdfs",
@@ -149,7 +155,7 @@ def upgrade() -> None:
         sa.Column("storage_key", sa.String(512)),
         sa.Column("status", sa.String(16), nullable=False, server_default="PENDING"),
         sa.Column("error", sa.Text()),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
     )
     op.create_index("ix_generated_pdfs_chat_id", "generated_pdfs", ["chat_id"])
     op.create_index("ix_generated_pdfs_status", "generated_pdfs", ["status"])
@@ -170,9 +176,10 @@ def upgrade() -> None:
         sa.Column("error", sa.Text()),
         sa.Column("started_at", sa.DateTime(timezone=True)),
         sa.Column("finished_at", sa.DateTime(timezone=True)),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
     )
     op.create_index("ix_processing_jobs_document_id", "processing_jobs", ["document_id"])
+    op.create_index("ix_processing_jobs_document_created_at", "processing_jobs", ["document_id", "created_at"])
     op.create_index("ix_processing_jobs_status", "processing_jobs", ["status"])
 
 
@@ -182,7 +189,9 @@ def downgrade() -> None:
     op.drop_table("message_citations")
     op.drop_table("messages")
     op.drop_table("chat_documents")
+    op.drop_index("ix_chats_updated_at", table_name="chats")
     op.drop_table("chats")
     op.execute("DROP INDEX IF EXISTS ix_document_chunks_embedding_hnsw")
     op.drop_table("document_chunks")
+    op.drop_index("ix_documents_created_at", table_name="documents")
     op.drop_table("documents")

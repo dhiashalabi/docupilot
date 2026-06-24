@@ -21,14 +21,14 @@ class Settings(BaseSettings):
     # --- App ---
     app_name: str = "DocuPilot"
     environment: str = Field(default="development")
-    debug: bool = Field(default=True)
+    debug: bool = Field(default=False)
     api_prefix: str = "/api/v1"
     # Comma-separated list (or JSON array) of allowed CORS origins.
+    # Override via ALLOWED_ORIGINS env var in production.
     allowed_origins: list[str] = Field(
         default_factory=lambda: [
             "http://localhost:8080",
             "http://localhost:3000",
-            "https://3000-01kv8qt5y96a31hqwjxve2fkdx.cloudspaces.litng.ai",
         ]
     )
 
@@ -99,12 +99,15 @@ class Settings(BaseSettings):
     rerank_enabled: bool = True
     rerank_model: str = "BAAI/bge-reranker-v2-m3"
     rerank_overfetch: int = 4
-    # Minimum cosine-similarity score (0–1) a chunk must reach after reranking
-    # (or plain vector retrieval when reranking is off) to be included in the
-    # LLM context.  Chunks below the floor are silently dropped unless they
-    # would leave the context completely empty (safety fallback keeps the top
-    # result regardless).  0.0 disables filtering.
+    # Minimum cosine-similarity score (0–1) for plain vector retrieval results.
+    # Chunks below the floor are silently dropped unless they would leave the
+    # context completely empty (safety fallback keeps the top result regardless).
+    # 0.0 disables filtering.
     retrieval_min_score: float = 0.3
+    # Minimum sigmoid score (0–1) applied AFTER cross-encoder reranking.
+    # Cross-encoder sigmoid outputs have a different distribution than cosine
+    # similarity, so a separate threshold is used. 0.0 disables filtering.
+    rerank_min_score: float = 0.1
 
     @property
     def sync_database_url(self) -> str:

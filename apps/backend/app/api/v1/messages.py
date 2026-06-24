@@ -7,6 +7,7 @@ persisted assistant message id and its citations.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import uuid
 from collections.abc import AsyncIterator
@@ -16,8 +17,11 @@ from fastapi.responses import StreamingResponse
 
 from app.db.session import AsyncSessionLocal
 from app.deps import SessionDep
+from app.logging import get_logger
 from app.schemas import MessageCreate
 from app.services import chat_service, rag_service
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/chats", tags=["messages"])
 
@@ -40,9 +44,17 @@ async def stream_message(
                 ):
                     yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
                 await stream_session.commit()
-            except Exception as exc:  # noqa: BLE001
+            except asyncio.CancelledError:
+                # Client disconnected; roll back any uncommitted state and re-raise
+                # so the framework can clean up the generator.
+                logger.info("stream_cancelled", chat_id=str(chat_id))
                 await stream_session.rollback()
-                err = {"type": "error", "detail": str(exc)}
+                raise
+            except Exception:  # noqa: BLE001
+                logger.exception("stream_error", chat_id=str(chat_id))
+                await stream_session.rollback()
+                # Emit a stable error code – do NOT send str(exc) to the client.
+                err = {"type": "error", "detail": "An error occurred while generating the answer."}
                 yield f"data: {json.dumps(err, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(

@@ -10,17 +10,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import AppError, NotFoundError
 from app.config import settings
 from app.domain.models import Document, ProcessingJob
-from app.storage import save_file
+from app.storage import delete_file, save_file
 
 
 async def create_document(session: AsyncSession, filename: str, content_type: str | None, data: bytes) -> Document:
     """Validate and persist an uploaded PDF, creating its processing job."""
-    if content_type != "application/pdf":
-        raise AppError("Only PDF files are supported")
-
+    # Size check before any disk I/O so we fail fast on oversized uploads.
     max_bytes = settings.max_upload_mb * 1024 * 1024
     if len(data) > max_bytes:
         raise AppError(f"File exceeds {settings.max_upload_mb} MB limit")
+
+    if content_type != "application/pdf":
+        raise AppError("Only PDF files are supported")
+
+    # Validate PDF magic bytes regardless of the declared Content-Type.
+    if not data.startswith(b"%PDF-"):
+        raise AppError("Uploaded file is not a valid PDF")
 
     storage_key = save_file(data)
     document = Document(
@@ -87,4 +92,11 @@ async def reingest_document(session: AsyncSession, document_id: uuid.UUID) -> Do
 
 async def delete_document(session: AsyncSession, document_id: uuid.UUID) -> None:
     doc = await get_document(session, document_id)
+    storage_key = doc.storage_key
     await session.delete(doc)
+    # Best-effort file removal after the DB row is scheduled for deletion.
+    # We delete after the session.delete() call so if this raises the DB
+    # transaction can still roll back without an orphaned row pointing to a
+    # missing file.
+    await session.flush()
+    delete_file(storage_key)

@@ -60,7 +60,7 @@ export default async function RootLayout({
         locale === "ar" && "font-[family-name:var(--font-arabic)]"
       )}
     >
-      <body className="flex min-h-full flex-col">
+      <body suppressHydrationWarning className="flex min-h-full flex-col">
         <Providers>
           <ThemeProvider
             attribute="class"

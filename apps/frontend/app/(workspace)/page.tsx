@@ -12,6 +12,8 @@ import {
   FileTextIcon,
   SearchIcon,
   PencilIcon,
+  AlertCircleIcon,
+  RefreshCwIcon,
 } from "lucide-react"
 
 import { useChats, useDeleteChat, useCreateChat } from "@/lib/queries"
@@ -47,7 +49,7 @@ export default function ChatsHomePage() {
   const router = useRouter()
   const t = useTranslations()
 
-  const { data: chatsData, isPending } = useChats()
+  const { data: chatsData, isPending, isError, refetch } = useChats()
   const createChatMutation = useCreateChat()
   const deleteChatMutation = useDeleteChat()
 
@@ -117,6 +119,25 @@ export default function ChatsHomePage() {
             </div>
           </Card>
         ))}
+      </div>
+    )
+  }
+
+  if (isError) {
+    return (
+      <div className="flex flex-1 items-center justify-center px-4">
+        <Empty className="max-w-md border-none">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <AlertCircleIcon className="text-destructive" />
+            </EmptyMedia>
+            <EmptyTitle>{t("errors.loadFailed")}</EmptyTitle>
+          </EmptyHeader>
+          <Button variant="outline" size="sm" onClick={() => void refetch()}>
+            <RefreshCwIcon className="size-4" />
+            {t("common.retry")}
+          </Button>
+        </Empty>
       </div>
     )
   }

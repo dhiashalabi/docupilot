@@ -35,6 +35,28 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Normalize FastAPI `detail` values.
+ * The field can be a plain string, an array of validation-error objects
+ * (each with a `msg` property), or anything else.
+ */
+function parseDetail(body: unknown, fallback: string): string {
+  if (typeof body !== "object" || body === null) return fallback
+  const detail = (body as Record<string, unknown>).detail
+  if (typeof detail === "string") return detail
+  if (Array.isArray(detail)) {
+    return detail
+      .map((e) =>
+        typeof e === "object" && e !== null && "msg" in e
+          ? String((e as { msg: unknown }).msg)
+          : String(e)
+      )
+      .join("; ")
+  }
+  if (detail != null) return String(detail)
+  return fallback
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${PREFIX}${path}`, {
     headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
@@ -44,13 +66,30 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     let detail = res.statusText
     try {
       const body = await res.json()
-      detail = body.detail ?? detail
+      detail = parseDetail(body, detail)
     } catch {
       /* ignore */
     }
     throw new ApiError(res.status, detail)
   }
   if (res.status === 204) return undefined as T
+  return res.json() as Promise<T>
+}
+
+async function uploadFile<T>(url: string, file: File): Promise<T> {
+  const form = new FormData()
+  form.append("file", file)
+  const res = await fetch(url, { method: "POST", body: form })
+  if (!res.ok) {
+    let detail = res.statusText
+    try {
+      const body = await res.json()
+      detail = parseDetail(body, detail)
+    } catch {
+      /* ignore */
+    }
+    throw new ApiError(res.status, detail)
+  }
   return res.json() as Promise<T>
 }
 
@@ -68,49 +107,12 @@ export const api = {
     request<ProcessingJob>(`/documents/${id}/job`),
   deleteDocument: (id: string) =>
     request<void>(`/documents/${id}`, { method: "DELETE" }),
-  uploadDocument: async (file: File): Promise<DocumentRead> => {
-    const form = new FormData()
-    form.append("file", file)
-    const res = await fetch(`${PREFIX}/documents`, {
-      method: "POST",
-      body: form,
-    })
-    if (!res.ok) {
-      let detail = res.statusText
-      try {
-        const body = await res.json()
-        detail = body.detail ?? detail
-      } catch {
-        /* ignore */
-      }
-      throw new ApiError(res.status, detail)
-    }
-    return res.json()
-  },
+  uploadDocument: (file: File) =>
+    uploadFile<DocumentRead>(`${PREFIX}/documents`, file),
 
   // --- Chats ---
-  uploadChatDocument: async (
-    chatId: string,
-    file: File
-  ): Promise<DocumentRead> => {
-    const form = new FormData()
-    form.append("file", file)
-    const res = await fetch(`${PREFIX}/chats/${chatId}/documents`, {
-      method: "POST",
-      body: form,
-    })
-    if (!res.ok) {
-      let detail = res.statusText
-      try {
-        const body = await res.json()
-        detail = body.detail ?? detail
-      } catch {
-        /* ignore */
-      }
-      throw new ApiError(res.status, detail)
-    }
-    return res.json()
-  },
+  uploadChatDocument: (chatId: string, file: File) =>
+    uploadFile<DocumentRead>(`${PREFIX}/chats/${chatId}/documents`, file),
   listChats: () => request<ChatRead[]>("/chats"),
   getChat: (id: string) => request<ChatRead>(`/chats/${id}`),
   createChat: (body: { title?: string | null; document_ids: string[] }) =>
@@ -156,7 +158,7 @@ export const api = {
 
 /**
  * Stream a chat answer via Server-Sent Events. Invokes `onEvent` for each
- * parsed event until the stream completes.
+ * parsed event until the stream completes or the signal is aborted.
  */
 export async function streamMessage(
   chatId: string,
@@ -171,18 +173,23 @@ export async function streamMessage(
     signal,
   })
   if (!res.ok || !res.body) {
-    throw new Error("Failed to start message stream")
+    let detail = res.statusText
+    try {
+      const body = await res.json()
+      detail = parseDetail(body, detail)
+    } catch {
+      /* ignore */
+    }
+    throw new ApiError(res.status, detail)
   }
 
   const reader = res.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ""
 
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    buffer += decoder.decode(value, { stream: true })
-    const parts = buffer.split("\n\n")
+  function processChunk(chunk: string) {
+    const parts = chunk.split("\n\n")
+    // Last element is the incomplete tail — keep it in the buffer
     buffer = parts.pop() ?? ""
     for (const part of parts) {
       const line = part.trim()
@@ -195,5 +202,18 @@ export async function streamMessage(
         /* ignore malformed event */
       }
     }
+  }
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    processChunk(buffer + decoder.decode(value, { stream: true }))
+  }
+
+  // Flush any bytes still held by the TextDecoder, then drain the buffer.
+  buffer += decoder.decode()
+  if (buffer.trim()) {
+    // Re-use processChunk by appending a sentinel so it emits the last event.
+    processChunk(buffer + "\n\n")
   }
 }

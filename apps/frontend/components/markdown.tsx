@@ -17,12 +17,29 @@ import { cn } from "@/lib/utils"
  * - Code blocks use the monospace font variable.
  */
 
+/** Allow only safe URL schemes. Strips anything else to block javascript: XSS. */
+function sanitizeHref(href: string | undefined): string | undefined {
+  if (!href) return href
+  const lower = href.trimStart().toLowerCase()
+  if (
+    lower.startsWith("http://") ||
+    lower.startsWith("https://") ||
+    lower.startsWith("mailto:") ||
+    lower.startsWith("/") ||
+    lower.startsWith("#")
+  ) {
+    return href
+  }
+  return undefined
+}
+
 const components: Components = {
-  // Links: always open externally and safely
+  // Links: sanitize href then open externally with safe rel.
   a({ href, children, ...props }) {
+    const safeHref = sanitizeHref(href)
     return (
       <a
-        href={href}
+        href={safeHref}
         target="_blank"
         rel="noreferrer noopener"
         className="text-primary underline underline-offset-2 hover:opacity-80"

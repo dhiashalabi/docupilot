@@ -30,24 +30,42 @@ async def _chat_document_ids(session: AsyncSession, chat: Chat) -> list[uuid.UUI
     return list(rows)
 
 
-async def _history(session: AsyncSession, chat_id: uuid.UUID) -> list[dict[str, str]]:
-    rows = await session.scalars(
-        select(Message).where(Message.chat_id == chat_id).order_by(Message.created_at)
-    )
+async def _history(
+    session: AsyncSession,
+    chat_id: uuid.UUID,
+    exclude_id: uuid.UUID | None = None,
+) -> list[dict[str, str]]:
+    stmt = select(Message).where(Message.chat_id == chat_id).order_by(Message.created_at)
+    if exclude_id is not None:
+        stmt = stmt.where(Message.id != exclude_id)
+    rows = await session.scalars(stmt)
     msgs = list(rows)
     return [{"role": m.role, "content": m.content} for m in msgs]
 
 
-async def _build_context(session: AsyncSession, chat: Chat, question: str):
+async def _build_context(
+    session: AsyncSession,
+    chat: Chat,
+    question: str,
+    exclude_message_id: uuid.UUID | None = None,
+):
     """Embed the question, retrieve chunks and prepare prompt messages."""
     doc_ids = await _chat_document_ids(session, chat)
-    query_vec = await asyncio.to_thread(embedder.embed_query, question)
-    chunks = await retriever.retrieve(
-        session, query_vec, document_ids=doc_ids or None, query_text=question
-    )
-    passages = context_assembler.to_passages(chunks)
+    # When a chat has no linked documents skip retrieval entirely; build_chat_messages
+    # will surface "(no relevant excerpts found)" so the LLM still gets a valid prompt.
+    if doc_ids:
+        query_vec = await asyncio.to_thread(embedder.embed_query, question)
+        chunks = await retriever.retrieve(
+            session, query_vec, document_ids=doc_ids, query_text=question
+        )
+        passages = context_assembler.to_passages(chunks)
+    else:
+        chunks = []
+        passages = []
 
-    history = await _history(session, chat.id)
+    # Exclude the just-committed user message so the question is not sent twice
+    # (build_chat_messages already appends the question as the final user turn).
+    history = await _history(session, chat.id, exclude_id=exclude_message_id)
     history_summary = None
     recent = history
     if len(history) > settings.max_history_messages:
@@ -88,7 +106,9 @@ async def answer_stream(session: AsyncSession, chat: Chat, question: str) -> Asy
     # disconnects or the LLM call fails mid-stream.
     await session.commit()
 
-    messages, chunks = await _build_context(session, chat, question)
+    messages, chunks = await _build_context(
+        session, chat, question, exclude_message_id=user_msg.id
+    )
 
     buffer: list[str] = []
     async for token in vllm_client.stream(messages):
@@ -104,6 +124,10 @@ async def answer_stream(session: AsyncSession, chat: Chat, question: str) -> Asy
     await session.flush()
 
     cited = context_assembler.extract_cited_indices(answer, max_index=len(chunks))
+    # Use the appropriate score floor depending on whether reranking was applied.
+    citation_min_score = (
+        settings.rerank_min_score if settings.rerank_enabled else settings.retrieval_min_score
+    )
     citations_out: list[dict] = []
     for n in cited:
         chunk = chunks[n - 1]
@@ -111,7 +135,7 @@ async def answer_stream(session: AsyncSession, chat: Chat, question: str) -> Asy
         # that a mis-numbered [n] in the model's output cannot surface an
         # irrelevant source. (The first chunk is never filtered to guarantee at
         # least one citation is possible when the model is well-behaved.)
-        if n > 1 and chunk.score < settings.retrieval_min_score:
+        if n > 1 and chunk.score < citation_min_score:
             continue
         session.add(
             MessageCitation(
@@ -135,6 +159,9 @@ async def answer_stream(session: AsyncSession, chat: Chat, question: str) -> Asy
         )
 
     await session.flush()
+    # Commit assistant message + citations immediately so they are durable even
+    # if the client disconnects before the outer commit in messages.py runs.
+    await session.commit()
     yield {
         "type": "done",
         "message_id": str(assistant_msg.id),

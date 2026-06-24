@@ -37,6 +37,7 @@ export interface ChatRead {
 export interface Citation {
   document_id: string
   chunk_id: string | null
+  filename: string | null
   page_from: number | null
   page_to: number | null
   score: number | null

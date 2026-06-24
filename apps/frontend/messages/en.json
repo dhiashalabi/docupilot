@@ -57,7 +57,9 @@
     "pdfGenerationFailed": "PDF generation failed",
     "copyFailed": "Couldn't copy to clipboard",
     "notPdf": "{filename} is not a PDF",
-    "renameChatFailed": "Could not rename chat"
+    "renameChatFailed": "Could not rename chat",
+    "updateFailed": "Update failed",
+    "loadFailed": "Couldn't load content"
   },
   "toasts": {
     "uploaded": "Uploaded {filename}",

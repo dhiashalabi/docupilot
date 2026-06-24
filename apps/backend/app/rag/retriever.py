@@ -31,13 +31,16 @@ class RetrievedChunk:
     score: float
 
 
-def _apply_min_score(chunks: list[RetrievedChunk]) -> list[RetrievedChunk]:
+def _apply_min_score(
+    chunks: list[RetrievedChunk], *, reranked: bool = False
+) -> list[RetrievedChunk]:
     """Drop chunks below the configured relevance floor.
 
+    Uses `rerank_min_score` after cross-encoder reranking (sigmoid scale) and
+    `retrieval_min_score` for plain cosine-similarity results.
     Always keeps at least the top result so the context is never empty.
-    Set `retrieval_min_score = 0.0` to disable filtering entirely.
     """
-    floor = settings.retrieval_min_score
+    floor = settings.rerank_min_score if reranked else settings.retrieval_min_score
     if floor <= 0.0 or not chunks:
         return chunks
     filtered = [c for c in chunks if c.score >= floor]
@@ -108,9 +111,14 @@ async def retrieve(
         scores = await asyncio.to_thread(
             reranker.rerank_scores, query_text, [c.content for c in candidates]
         )
-        for chunk, score in zip(candidates, scores, strict=False):
+        if len(scores) != len(candidates):
+            raise RuntimeError(
+                f"Reranker returned {len(scores)} scores for {len(candidates)} candidates"
+            )
+        for chunk, score in zip(candidates, scores):
             chunk.score = score
         candidates.sort(key=lambda c: c.score, reverse=True)
         candidates = candidates[:k]
+        return _apply_min_score(candidates, reranked=True)
 
     return _apply_min_score(candidates)

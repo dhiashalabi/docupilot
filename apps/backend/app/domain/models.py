@@ -15,6 +15,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -55,7 +56,7 @@ class Document(Base):
     )
     error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
+        DateTime(timezone=True), server_default=func.now(), index=True
     )
 
     chunks: Mapped[list[DocumentChunk]] = relationship(
@@ -74,6 +75,14 @@ class DocumentChunk(Base):
     __tablename__ = "document_chunks"
     __table_args__ = (
         UniqueConstraint("document_id", "chunk_index", name="uq_chunk_doc_index"),
+        # Declared here so Alembic autogenerate does not treat the HNSW index
+        # (created in 0001_initial.py) as drift and try to drop it.
+        Index(
+            "ix_document_chunks_embedding_hnsw",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+        ),
     )
 
     id: Mapped[uuid.UUID] = _uuid_pk()
@@ -106,7 +115,7 @@ class Chat(Base):
         DateTime(timezone=True), server_default=func.now()
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), index=True
     )
 
     documents: Mapped[list[ChatDocument]] = relationship(
@@ -139,6 +148,10 @@ class Message(Base):
     """A single turn in a conversation."""
 
     __tablename__ = "messages"
+    __table_args__ = (
+        # Composite index for list_messages: WHERE chat_id = ? ORDER BY created_at
+        Index("ix_messages_chat_id_created_at", "chat_id", "created_at"),
+    )
 
     id: Mapped[uuid.UUID] = _uuid_pk()
     chat_id: Mapped[uuid.UUID] = mapped_column(
@@ -171,13 +184,18 @@ class MessageCitation(Base):
         ForeignKey("document_chunks.id", ondelete="SET NULL")
     )
     document_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("documents.id", ondelete="CASCADE"), nullable=False
+        ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True
     )
     page_from: Mapped[int | None] = mapped_column(Integer)
     page_to: Mapped[int | None] = mapped_column(Integer)
     score: Mapped[float | None] = mapped_column(Float)
 
     message: Mapped[Message] = relationship(back_populates="citations")
+    document: Mapped[Document] = relationship()
+
+    @property
+    def filename(self) -> str | None:
+        return self.document.filename if self.document is not None else None
 
 
 class GeneratedPdf(Base):
@@ -205,6 +223,10 @@ class ProcessingJob(Base):
     """Tracks an async background job (e.g. document ingestion)."""
 
     __tablename__ = "processing_jobs"
+    __table_args__ = (
+        # Composite index for latest-job-per-document lookup: ORDER BY created_at DESC
+        Index("ix_processing_jobs_document_created_at", "document_id", "created_at"),
+    )
 
     id: Mapped[uuid.UUID] = _uuid_pk()
     document_id: Mapped[uuid.UUID] = mapped_column(

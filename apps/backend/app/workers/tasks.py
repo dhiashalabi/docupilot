@@ -5,7 +5,7 @@ Pipeline (sync, runs in the worker container):
   2. Parse PDF -> markdown (Docling, PyMuPDF fallback).
   3. Detect language.
   4. Structure-aware chunking.
-  5. Embed chunks with BGE-M3 (in-process).
+  5. Embed chunks with BGE-M3 (in-process), batched to limit peak memory.
   6. Persist chunks + vectors.
   7. Mark document READY (or FAILED with error).
 """
@@ -35,6 +35,19 @@ from app.workers.celery_app import celery_app
 
 logger = get_logger(__name__)
 
+# Maximum number of chunk texts to embed in a single call to avoid OOM on
+# large documents.
+_EMBED_BATCH_SIZE = 64
+
+
+def _latest_job(session, document_id):
+    """Return the most-recently created ProcessingJob for this document."""
+    return session.scalars(
+        select(ProcessingJob)
+        .where(ProcessingJob.document_id == document_id)
+        .order_by(ProcessingJob.created_at.desc())
+    ).first()
+
 
 @celery_app.task(name="ingest_document", bind=True)
 def ingest_document(self, document_id: str) -> dict:
@@ -46,11 +59,13 @@ def ingest_document(self, document_id: str) -> dict:
             logger.warning("ingest_document_missing", document_id=document_id)
             return {"status": "missing"}
 
-        job = session.scalars(
-            select(ProcessingJob)
-            .where(ProcessingJob.document_id == document.id)
-            .order_by(ProcessingJob.created_at.desc())
-        ).first()
+        job = _latest_job(session, document_id)
+
+        # Idempotency guard: skip if already successfully ingested and this is
+        # not a deliberate reingest (reingest resets status to PENDING first).
+        if document.status == STATUS_READY:
+            logger.info("ingest_document_already_ready", document_id=document_id)
+            return {"status": "already_ready"}
 
         document.status = STATUS_PROCESSING
         if job:
@@ -61,6 +76,9 @@ def ingest_document(self, document_id: str) -> dict:
         session.commit()
 
         path = Path(file_path(document.storage_key))
+        if not path.exists():
+            raise FileNotFoundError(f"Source PDF not found: {path}")
+
         parsed = parser.parse_pdf(path)
         document.page_count = parsed.page_count
         document.language = detect_language(parsed.markdown)
@@ -70,7 +88,13 @@ def ingest_document(self, document_id: str) -> dict:
 
         chunks = chunker.chunk_markdown(parsed.markdown, parsed.page_map or None)
         texts = [c.content for c in chunks]
-        vectors = embedder.embed_texts(texts)
+
+        # Embed in batches to cap peak memory usage on large documents.
+        vectors: list[list[float]] = []
+        for i in range(0, len(texts), _EMBED_BATCH_SIZE):
+            batch = texts[i : i + _EMBED_BATCH_SIZE]
+            vectors.extend(embedder.embed_texts(batch))
+
         if job:
             job.progress = 80
         session.commit()
@@ -107,9 +131,9 @@ def ingest_document(self, document_id: str) -> dict:
         if document:
             document.status = STATUS_FAILED
             document.error = str(exc)
-        job = session.scalars(
-            select(ProcessingJob).where(ProcessingJob.document_id == document_id)
-        ).first()
+        # Use the same ordered query as the happy path to always update the
+        # correct (latest) job rather than an arbitrary one.
+        job = _latest_job(session, document_id)
         if job:
             job.status = STATUS_FAILED
             job.error = str(exc)

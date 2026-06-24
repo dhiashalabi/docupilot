@@ -58,6 +58,7 @@ class Citation(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     document_id: uuid.UUID
     chunk_id: uuid.UUID | None = None
+    filename: str | None = None
     page_from: int | None = None
     page_to: int | None = None
     score: float | None = None
@@ -74,14 +75,14 @@ class MessageRead(BaseModel):
 
 
 class MessageCreate(BaseModel):
-    content: str = Field(min_length=1)
+    content: str = Field(min_length=1, max_length=32_000)
 
 
 # --- Search ---
 class SearchRequest(BaseModel):
     query: str = Field(min_length=1)
     document_ids: list[uuid.UUID] = Field(default_factory=list)
-    top_k: int | None = None
+    top_k: int | None = Field(default=None, ge=1, le=50)
 
 
 class SearchHit(BaseModel):
@@ -97,7 +98,7 @@ class SearchHit(BaseModel):
 # --- PDF Generation ---
 class GeneratePdfRequest(BaseModel):
     title: str = Field(min_length=1, max_length=255)
-    markdown: str = Field(min_length=1)
+    markdown: str = Field(min_length=1, max_length=200_000)
     chat_id: uuid.UUID | None = None
 
 

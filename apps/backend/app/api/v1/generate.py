@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import uuid
+from urllib.parse import quote
 
 from fastapi import APIRouter, Body
 from fastapi.responses import Response
@@ -50,10 +52,11 @@ async def download_pdf(pdf_id: uuid.UUID, session: SessionDep) -> Response:
     record = await generation_service.get_generated_pdf(session, pdf_id)
     if record.status != "READY" or not record.storage_key:
         raise AppError("PDF is not ready for download")
-    data = read_file(record.storage_key)
-    filename = f"{record.title}.pdf".replace("/", "_")
+    data = await asyncio.to_thread(read_file, record.storage_key)
+    # Use RFC 5987 encoding so titles with non-ASCII or special chars are safe.
+    safe_name = quote(f"{record.title}.pdf", safe="")
     return Response(
         content=data,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{safe_name}"},
     )

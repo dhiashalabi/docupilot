@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.exceptions import NotFoundError
-from app.domain.models import Chat, ChatDocument, Document, Message
+from app.domain.models import Chat, ChatDocument, Document, Message, MessageCitation
 
 
 def title_from_message(text: str, *, max_len: int = 80) -> str | None:
@@ -28,6 +28,7 @@ async def create_chat(
     session.add(chat)
     await session.flush()
     await _set_documents(session, chat, document_ids)
+    await session.refresh(chat, attribute_names=["documents"])
     return chat
 
 
@@ -77,6 +78,7 @@ async def update_chat(
         await _set_documents(session, chat, document_ids)
     await session.flush()
     await session.refresh(chat)
+    await session.refresh(chat, attribute_names=["documents"])
     return chat
 
 
@@ -111,7 +113,9 @@ async def list_messages(session: AsyncSession, chat_id: uuid.UUID) -> list[Messa
     await get_chat(session, chat_id)
     rows = await session.scalars(
         select(Message)
-        .options(selectinload(Message.citations))
+        .options(
+            selectinload(Message.citations).selectinload(MessageCitation.document)
+        )
         .where(Message.chat_id == chat_id)
         .order_by(Message.created_at)
     )

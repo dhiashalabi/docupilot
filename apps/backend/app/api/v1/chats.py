@@ -14,8 +14,10 @@ from app.workers.celery_app import celery_app
 router = APIRouter(prefix="/chats", tags=["chats"])
 
 
-async def _to_read(session, chat) -> ChatRead:
-    doc_ids = await chat_service.get_document_ids(session, chat.id)
+def _to_read(chat) -> ChatRead:
+    # `chat.documents` is already eagerly loaded by get_chat/list_chats via
+    # selectinload(Chat.documents), so reading it here avoids an N+1 query.
+    doc_ids = [link.document_id for link in chat.documents]
     return ChatRead(
         id=chat.id,
         title=chat.title,
@@ -28,26 +30,26 @@ async def _to_read(session, chat) -> ChatRead:
 @router.post("", response_model=ChatRead, status_code=201)
 async def create_chat(payload: ChatCreate, session: SessionDep) -> ChatRead:
     chat = await chat_service.create_chat(session, payload.title, payload.document_ids)
-    return await _to_read(session, chat)
+    return _to_read(chat)
 
 
 @router.get("", response_model=list[ChatRead])
 async def list_chats(session: SessionDep) -> list[ChatRead]:
     chats = await chat_service.list_chats(session)
-    return [await _to_read(session, c) for c in chats]
+    return [_to_read(c) for c in chats]
 
 
 @router.get("/{chat_id}", response_model=ChatRead)
 async def get_chat(chat_id: uuid.UUID, session: SessionDep) -> ChatRead:
     chat = await chat_service.get_chat(session, chat_id)
-    return await _to_read(session, chat)
+    return _to_read(chat)
 
 
 @router.patch("/{chat_id}", response_model=ChatRead)
 @router.put("/{chat_id}", response_model=ChatRead)
 async def update_chat(chat_id: uuid.UUID, payload: ChatUpdate, session: SessionDep) -> ChatRead:
     chat = await chat_service.update_chat(session, chat_id, payload.title, payload.document_ids)
-    return await _to_read(session, chat)
+    return _to_read(chat)
 
 
 @router.delete("/{chat_id}", status_code=204)
