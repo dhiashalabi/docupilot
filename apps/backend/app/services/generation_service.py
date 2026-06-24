@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 
 from sqlalchemy import select
@@ -22,7 +23,7 @@ async def search(
     top_k: int | None,
 ) -> list[retriever.RetrievedChunk]:
     """Semantic search across stored chunks."""
-    query_vec = embedder.embed_query(query)
+    query_vec = await asyncio.to_thread(embedder.embed_query, query)
     return await retriever.retrieve(
         session, query_vec, document_ids=document_ids or None, top_k=top_k, query_text=query
     )
@@ -43,7 +44,9 @@ async def summarize(
 
 async def embedder_embed_seed(instruction: str | None) -> list[float]:
     """Embed a seed query for summary retrieval."""
-    return embedder.embed_query(instruction or "summary overview key points")
+    return await asyncio.to_thread(
+        embedder.embed_query, instruction or "summary overview key points"
+    )
 
 
 async def generate_pdf(

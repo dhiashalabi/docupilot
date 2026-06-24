@@ -7,6 +7,7 @@ for long chats) and records only the citations the model actually used.
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
@@ -40,7 +41,7 @@ async def _history(session: AsyncSession, chat_id: uuid.UUID) -> list[dict[str, 
 async def _build_context(session: AsyncSession, chat: Chat, question: str):
     """Embed the question, retrieve chunks and prepare prompt messages."""
     doc_ids = await _chat_document_ids(session, chat)
-    query_vec = embedder.embed_query(question)
+    query_vec = await asyncio.to_thread(embedder.embed_query, question)
     chunks = await retriever.retrieve(
         session, query_vec, document_ids=doc_ids or None, query_text=question
     )

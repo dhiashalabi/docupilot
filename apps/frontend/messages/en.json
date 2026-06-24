@@ -171,6 +171,42 @@
     "empty": "No processed documents yet. Upload and wait for processing to finish.",
     "selectAll": "Select all"
   },
+  "help": {
+    "title": "Getting Started",
+    "subtitle": "Learn how to use DocuPilot",
+    "chat": {
+      "label": "Chat",
+      "description": "Have a conversation with your documents. Upload PDFs and ask any question — the AI answers using the content in your library and cites the exact sources it used.",
+      "tip1": "Upload at least one document before starting a chat",
+      "tip2": "Click \"New Chat\" in the sidebar to open a fresh conversation",
+      "tip3": "Attach specific documents to focus the AI on only those files",
+      "tip4": "Every answer includes source citations — click them to see the original passage"
+    },
+    "documents": {
+      "label": "Documents",
+      "description": "Your document library is the foundation of everything in DocuPilot. Upload PDFs here and the AI will index their full content for search and chat.",
+      "tip1": "Drag & drop one or more PDF files onto the upload area",
+      "tip2": "Wait for the status to change from \"Processing\" to \"Ready\" before using a document",
+      "tip3": "Use Re-ingest if a document needs to be reprocessed after an error",
+      "tip4": "Deleting a document removes it from all chats and search results"
+    },
+    "search": {
+      "label": "Search",
+      "description": "Find specific passages across your entire document library using semantic search. The AI understands meaning, so you don't need to match exact words.",
+      "tip1": "Type a question or a description of what you're looking for",
+      "tip2": "Results are ranked by relevance, not just keyword frequency",
+      "tip3": "Use the document filter to narrow results to a specific file",
+      "tip4": "Click any result to see the full passage with page reference"
+    },
+    "generate": {
+      "label": "Generate",
+      "description": "Generate summaries and export them as polished PDF reports. Select source documents, add optional instructions, and the AI will draft the content for you.",
+      "tip1": "Select one or more source documents to summarize",
+      "tip2": "Add instructions to focus the summary on a specific topic or format",
+      "tip3": "Edit the generated content in the Markdown editor before exporting",
+      "tip4": "Click \"Export\" to download the final result as a PDF file"
+    }
+  },
   "health": {
     "ariaLabel": "System health",
     "refresh": "Refresh",

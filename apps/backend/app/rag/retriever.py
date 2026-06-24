@@ -7,6 +7,7 @@ single-doc, multi-doc and cross-document workflows.
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from dataclasses import dataclass
 
@@ -104,7 +105,9 @@ async def retrieve(
     if rerank and candidates:
         from app.rag import reranker
 
-        scores = reranker.rerank_scores(query_text, [c.content for c in candidates])
+        scores = await asyncio.to_thread(
+            reranker.rerank_scores, query_text, [c.content for c in candidates]
+        )
         for chunk, score in zip(candidates, scores, strict=False):
             chunk.score = score
         candidates.sort(key=lambda c: c.score, reverse=True)

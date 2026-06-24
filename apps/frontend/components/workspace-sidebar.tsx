@@ -15,7 +15,6 @@ import {
   Trash2Icon,
   MoreHorizontalIcon,
   CircleHelpIcon,
-  Settings2Icon,
   PencilIcon,
 } from "lucide-react"
 
@@ -24,6 +23,7 @@ import type { ChatRead } from "@/lib/types"
 import { displayChatTitle } from "@/lib/chat-title"
 import { useDirection } from "@/components/ui/direction"
 import { RenameChatDialog } from "@/components/rename-chat-dialog"
+import { HelpDialog } from "@/components/help-dialog"
 import {
   Sidebar,
   SidebarContent,
@@ -74,6 +74,7 @@ export function WorkspaceSidebar({
   const [pendingRename, setPendingRename] = React.useState<ChatRead | null>(
     null
   )
+  const [helpOpen, setHelpOpen] = React.useState(false)
 
   const mainNav = [
     { title: t("nav.chats"), url: "/", icon: MessageSquareTextIcon },
@@ -82,9 +83,16 @@ export function WorkspaceSidebar({
     { title: t("nav.generate"), url: "/generate", icon: FileOutputIcon },
   ]
 
-  const secondaryNav = [
-    { title: t("nav.help"), url: "#", icon: CircleHelpIcon },
-    { title: t("nav.settings"), url: "#", icon: Settings2Icon },
+  const secondaryNav: Array<{
+    title: string
+    icon: React.ElementType
+    onClick: () => void
+  }> = [
+    {
+      title: t("nav.help"),
+      icon: CircleHelpIcon,
+      onClick: () => setHelpOpen(true),
+    },
   ]
 
   const createChat = async () => {
@@ -269,11 +277,12 @@ export function WorkspaceSidebar({
             <SidebarMenu>
               {secondaryNav.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild tooltip={item.title}>
-                    <a href={item.url}>
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </a>
+                  <SidebarMenuButton
+                    tooltip={item.title}
+                    onClick={item.onClick}
+                  >
+                    <item.icon />
+                    <span>{item.title}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -315,6 +324,8 @@ export function WorkspaceSidebar({
           currentTitle={pendingRename.title}
         />
       )}
+
+      <HelpDialog open={helpOpen} onOpenChange={setHelpOpen} />
     </Sidebar>
   )
 }

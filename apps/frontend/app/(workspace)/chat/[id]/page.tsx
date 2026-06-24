@@ -16,6 +16,8 @@ import {
   UploadCloudIcon,
   XIcon,
   GlobeIcon,
+  CopyIcon,
+  CheckIcon,
 } from "lucide-react"
 
 import { streamMessage } from "@/lib/api"
@@ -142,15 +144,32 @@ function Bubble({
   children,
   citations,
   language,
+  isLoading,
 }: {
   role: "user" | "assistant"
   children: React.ReactNode
   citations?: MessageRead["citations"] | StreamingState["citations"]
   language?: string | null
+  isLoading?: boolean
 }) {
   const isUser = role === "user"
+  const [copied, setCopied] = React.useState(false)
+
+  const handleCopy = () => {
+    const text = typeof children === "string" ? children : ""
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
   return (
-    <div className={cn("flex gap-2", isUser ? "flex-row-reverse" : "flex-row")}>
+    <div
+      className={cn(
+        "group flex gap-2",
+        isUser ? "flex-row-reverse" : "flex-row"
+      )}
+    >
       <Avatar className="mt-0.5 size-7 shrink-0">
         <AvatarFallback
           className={cn(
@@ -186,6 +205,8 @@ function Bubble({
             >
               {children}
             </div>
+          ) : isLoading ? (
+            <TypingIndicator />
           ) : (
             <Markdown
               dir={
@@ -201,6 +222,29 @@ function Bubble({
           )}
         </div>
         {citations ? <CitationList citations={citations} /> : null}
+        {!isLoading && (
+          <div
+            className={cn(
+              "flex",
+              isUser
+                ? "justify-end opacity-0 transition-opacity group-hover:opacity-100"
+                : "justify-start"
+            )}
+          >
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-muted-foreground hover:text-foreground"
+              onClick={handleCopy}
+            >
+              {copied ? (
+                <CheckIcon className="size-3" />
+              ) : (
+                <CopyIcon className="size-3" />
+              )}
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -365,19 +409,46 @@ export default function ChatPage({
       optimisticMessage,
     ])
 
+    let streamedText = ""
+    let doneData: Extract<StreamEvent, { type: "done" }> | null = null
+
     try {
       await streamMessage(id, content, (event: StreamEvent) => {
         if (event.type === "token") {
-          setStreaming((s) => (s ? { ...s, text: s.text + event.text } : s))
+          streamedText += event.text
+          setStreaming({ text: streamedText, citations: [] })
         } else if (event.type === "done") {
-          setStreaming((s) => (s ? { ...s, citations: event.citations } : s))
+          doneData = event
+          setStreaming({ text: streamedText, citations: event.citations })
         } else if (event.type === "error") {
           toast.error(event.detail)
         }
       })
-      await queryClient.invalidateQueries({ queryKey: qk.messages(id) })
-      await queryClient.invalidateQueries({ queryKey: qk.chat(id) })
-      await queryClient.invalidateQueries({ queryKey: qk.chats })
+      if (doneData) {
+        const d = doneData as Extract<StreamEvent, { type: "done" }>
+        const assistantMsg: MessageRead = {
+          id: d.message_id,
+          role: "assistant",
+          content: streamedText,
+          language: null,
+          citations: d.citations.map((c) => ({
+            document_id: c.document_id,
+            chunk_id: null,
+            page_from: c.page_from,
+            page_to: c.page_to,
+            score: c.score,
+          })),
+          created_at: new Date().toISOString(),
+        }
+        queryClient.setQueryData<MessageRead[]>(qk.messages(id), (prev) => [
+          ...(prev ?? []),
+          assistantMsg,
+        ])
+      }
+      setStreaming(null)
+      void queryClient.invalidateQueries({ queryKey: qk.messages(id) })
+      void queryClient.invalidateQueries({ queryKey: qk.chat(id) })
+      void queryClient.invalidateQueries({ queryKey: qk.chats })
     } catch (e) {
       toast.error(e instanceof Error ? e.message : te("sendMessageFailed"))
       await queryClient.invalidateQueries({ queryKey: qk.messages(id) })
@@ -515,7 +586,7 @@ export default function ChatPage({
 
       {/* ---- Message list ---- */}
       <ScrollArea className="min-h-0 flex-1" viewportRef={viewportRef}>
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-4 py-3 lg:px-6">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-4 py-6 lg:px-6">
           {initialLoading ? (
             <>
               {[0, 1, 2].map((i) => (
@@ -565,8 +636,9 @@ export default function ChatPage({
                   role="assistant"
                   language={null}
                   citations={streaming.citations}
+                  isLoading={!streaming.text}
                 >
-                  {streaming.text || <TypingIndicator />}
+                  {streaming.text}
                 </Bubble>
               )}
             </>
