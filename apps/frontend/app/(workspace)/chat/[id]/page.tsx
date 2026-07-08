@@ -38,10 +38,8 @@ import type { DocumentRead, MessageRead, StreamEvent } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Textarea } from "@/components/ui/textarea"
 import { Kbd } from "@/components/ui/kbd"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { RenameChatDialog } from "@/components/rename-chat-dialog"
 import {
   Popover,
@@ -59,6 +57,31 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupText,
+  InputGroupTextarea,
+} from "@/components/ui/input-group"
+import {
+  Message,
+  MessageGroup,
+  MessageAvatar,
+  MessageContent,
+  MessageFooter,
+} from "@/components/ui/message"
+import { Bubble, BubbleContent } from "@/components/ui/bubble"
+import {
+  Attachment,
+  AttachmentAction,
+  AttachmentActions,
+  AttachmentContent,
+  AttachmentGroup,
+  AttachmentMedia,
+  AttachmentTitle,
+} from "@/components/ui/attachment"
+import { Marker, MarkerContent, MarkerIcon } from "@/components/ui/marker"
 
 /* ------------------------------------------------------------------ */
 /*  Processing chip – polls job status and refreshes doc list on done  */
@@ -86,28 +109,37 @@ function ProcessingChip({
     }
   }, [job?.status, queryClient])
 
+  const state: "processing" | "error" | "done" = isFailed
+    ? "error"
+    : isProcessing
+      ? "processing"
+      : "done"
+
   return (
-    <Badge
-      variant="outline"
-      className={cn(
-        "group flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-normal",
-        isFailed && "border-destructive/50 text-destructive",
-        isProcessing && "border-amber-400/50 text-amber-600 dark:text-amber-400"
-      )}
-    >
-      <FileTextIcon className="size-2.5 shrink-0" />
-      <span className="max-w-[120px] truncate">{doc.filename}</span>
-      {isProcessing && (
-        <Loader2Icon className="size-2.5 shrink-0 animate-spin" />
-      )}
-      <button
-        onClick={onDetach}
-        className="ml-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
-        aria-label={t("detachDocument")}
-      >
-        <XIcon className="size-2.5" />
-      </button>
-    </Badge>
+    <Attachment size="xs" state={state} className="group/chip">
+      <AttachmentMedia>
+        {isProcessing ? (
+          <Loader2Icon className="size-3 animate-spin" />
+        ) : (
+          <FileTextIcon />
+        )}
+      </AttachmentMedia>
+      <AttachmentContent>
+        <AttachmentTitle className="max-w-[140px]">
+          {doc.filename}
+        </AttachmentTitle>
+      </AttachmentContent>
+      <AttachmentActions className="pe-1">
+        <AttachmentAction
+          type="button"
+          onClick={onDetach}
+          aria-label={t("detachDocument")}
+          className="opacity-0 transition-opacity group-hover/chip:opacity-100 focus-visible:opacity-100"
+        >
+          <XIcon className="size-3" />
+        </AttachmentAction>
+      </AttachmentActions>
+    </Attachment>
   )
 }
 
@@ -153,10 +185,10 @@ function CitationList({
 }
 
 /* ------------------------------------------------------------------ */
-/*  Chat bubble                                                         */
+/*  Chat message                                                        */
 /* ------------------------------------------------------------------ */
 
-function Bubble({
+function ChatMessage({
   role,
   children,
   citations,
@@ -187,71 +219,62 @@ function Bubble({
   }
 
   return (
-    <div
-      className={cn(
-        "group flex gap-2",
-        isUser ? "flex-row-reverse" : "flex-row"
-      )}
-    >
-      <Avatar className="mt-0.5 size-7 shrink-0">
-        <AvatarFallback
-          className={cn(
-            isUser ? "bg-primary text-primary-foreground" : "border bg-card"
-          )}
-        >
-          {isUser ? (
-            <UserIcon className="size-3.5" />
-          ) : (
-            <BotIcon className="size-3.5" />
-          )}
-        </AvatarFallback>
-      </Avatar>
-      <div
+    <Message align={isUser ? "end" : "start"}>
+      <MessageAvatar
         className={cn(
-          "max-w-[75%] space-y-1",
-          isUser ? "items-end" : "items-start"
+          "mt-0.5 size-7",
+          isUser ? "bg-primary text-primary-foreground" : "border bg-card"
         )}
       >
-        <div
-          className={cn(
-            "rounded-2xl px-3 py-2 text-sm leading-normal",
-            isUser
-              ? "rounded-tr-md bg-primary text-primary-foreground"
-              : "rounded-tl-md bg-muted"
-          )}
+        {isUser ? (
+          <UserIcon className="size-3.5" />
+        ) : (
+          <BotIcon className="size-3.5" />
+        )}
+      </MessageAvatar>
+      <MessageContent>
+        <Bubble
+          variant={isUser ? "default" : "muted"}
+          align={isUser ? "end" : "start"}
         >
-          {isUser ? (
-            <div
-              dir={resolveTextDirection(language)}
-              lang={language ?? undefined}
-              className="text-start wrap-break-word whitespace-pre-wrap"
-            >
-              {children}
-            </div>
-          ) : isLoading ? (
-            <TypingIndicator />
-          ) : (
-            <Markdown
-              dir={
-                resolveTextDirection(language) as
-                  | "ltr"
-                  | "rtl"
-                  | "auto"
-                  | undefined
-              }
-            >
-              {typeof children === "string" ? children : ""}
-            </Markdown>
-          )}
-        </div>
+          <BubbleContent
+            className={cn(
+              "leading-normal",
+              isUser ? "rounded-tr-md" : "rounded-tl-md"
+            )}
+          >
+            {isUser ? (
+              <div
+                dir={resolveTextDirection(language)}
+                lang={language ?? undefined}
+                className="text-start wrap-break-word whitespace-pre-wrap"
+              >
+                {children}
+              </div>
+            ) : isLoading ? (
+              <TypingIndicator />
+            ) : (
+              <Markdown
+                dir={
+                  resolveTextDirection(language) as
+                    | "ltr"
+                    | "rtl"
+                    | "auto"
+                    | undefined
+                }
+              >
+                {typeof children === "string" ? children : ""}
+              </Markdown>
+            )}
+          </BubbleContent>
+        </Bubble>
         {citations ? <CitationList citations={citations} /> : null}
         {!isLoading && (
-          <div
+          <MessageFooter
             className={cn(
-              "flex",
-              isUser
-                ? "justify-end opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100"
-                : "justify-start"
+              "px-0",
+              isUser &&
+                "opacity-0 transition-opacity group-hover/message:opacity-100 focus-within:opacity-100"
             )}
           >
             <Button
@@ -267,10 +290,10 @@ function Bubble({
                 <CopyIcon className="size-3" />
               )}
             </Button>
-          </div>
+          </MessageFooter>
         )}
-      </div>
-    </div>
+      </MessageContent>
+    </Message>
   )
 }
 
@@ -373,12 +396,22 @@ export default function ChatPage({
     scrollToBottom()
   }, [messagesData, streaming, scrollToBottom])
 
-  /* ---- textarea auto-resize ---- */
+  /* ---- textarea auto-resize (cap at 5 rows, then internal scroll) ---- */
   const adjustTextarea = React.useCallback(() => {
     const el = textareaRef.current
     if (!el) return
+    const cs = window.getComputedStyle(el)
+    const lineHeight = parseFloat(cs.lineHeight) || 20
+    const paddingY =
+      (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0)
+    const borderY =
+      (parseFloat(cs.borderTopWidth) || 0) +
+      (parseFloat(cs.borderBottomWidth) || 0)
+    const maxHeight = lineHeight * 5 + paddingY + borderY
     el.style.height = "auto"
-    el.style.height = `${Math.min(el.scrollHeight, 200)}px`
+    const next = Math.min(el.scrollHeight, maxHeight)
+    el.style.height = `${next}px`
+    el.style.overflowY = el.scrollHeight > maxHeight ? "auto" : "hidden"
   }, [])
 
   React.useEffect(() => {
@@ -564,13 +597,17 @@ export default function ChatPage({
 
         {/* ---- Attached docs row ---- */}
         <div className="flex flex-wrap items-center gap-1.5">
-          {attachedDocs.map((doc) => (
-            <ProcessingChip
-              key={doc.id}
-              doc={doc}
-              onDetach={() => void detachDoc(doc.id)}
-            />
-          ))}
+          {attachedDocs.length > 0 && (
+            <AttachmentGroup className="max-w-full flex-1">
+              {attachedDocs.map((doc) => (
+                <ProcessingChip
+                  key={doc.id}
+                  doc={doc}
+                  onDetach={() => void detachDoc(doc.id)}
+                />
+              ))}
+            </AttachmentGroup>
+          )}
 
           {/* Attach existing */}
           <Popover open={attachOpen} onOpenChange={setAttachOpen}>
@@ -641,35 +678,36 @@ export default function ChatPage({
       />
 
       {!llmReady && (
-        <div className="flex shrink-0 items-center gap-2 border-b bg-muted/40 px-4 py-2 text-[11px] text-muted-foreground lg:px-6">
-          <Loader2Icon className="size-3 animate-spin" />
-          {t("modelLoading")}
-        </div>
+        <Marker
+          variant="border"
+          className="shrink-0 bg-muted/40 px-4 py-2 text-[11px] lg:px-6"
+        >
+          <MarkerIcon>
+            <Loader2Icon className="size-3 animate-spin" />
+          </MarkerIcon>
+          <MarkerContent>{t("modelLoading")}</MarkerContent>
+        </Marker>
       )}
 
       {/* ---- Message list ---- */}
       <ScrollArea className="min-h-0 flex-1" viewportRef={viewportRef}>
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-4 py-6 lg:px-6">
           {initialLoading ? (
-            <>
+            <MessageGroup className="gap-3">
               {[0, 1, 2].map((i) => (
-                <div
-                  key={i}
-                  className={cn(
-                    "flex gap-2",
-                    i % 2 === 0 ? "flex-row" : "flex-row-reverse"
-                  )}
-                >
+                <Message key={i} align={i % 2 === 0 ? "start" : "end"}>
                   <Skeleton className="size-7 shrink-0 rounded-full" />
-                  <Skeleton
-                    className={cn(
-                      "h-16 rounded-2xl",
-                      i % 2 === 0 ? "w-3/5" : "w-2/5"
-                    )}
-                  />
-                </div>
+                  <MessageContent>
+                    <Skeleton
+                      className={cn(
+                        "h-16 rounded-2xl",
+                        i % 2 === 0 ? "w-3/5" : "w-2/5 self-end"
+                      )}
+                    />
+                  </MessageContent>
+                </Message>
               ))}
-            </>
+            </MessageGroup>
           ) : messagesError || chatError ? (
             <Empty className="py-20">
               <EmptyHeader>
@@ -701,37 +739,37 @@ export default function ChatPage({
               </div>
             </div>
           ) : (
-            <>
+            <MessageGroup className="gap-3">
               {messagesData?.map((m) => (
-                <Bubble
+                <ChatMessage
                   key={m.id}
                   role={m.role}
                   language={m.language}
                   citations={m.citations}
                 >
                   {m.content}
-                </Bubble>
+                </ChatMessage>
               ))}
               {streaming && (
-                <Bubble
+                <ChatMessage
                   role="assistant"
                   language={null}
                   citations={streaming.citations}
                   isLoading={!streaming.text}
                 >
                   {streaming.text}
-                </Bubble>
+                </ChatMessage>
               )}
-            </>
+            </MessageGroup>
           )}
         </div>
       </ScrollArea>
 
       {/* ---- Input bar ---- */}
       <div className="shrink-0 border-t bg-background/80 px-4 py-3 backdrop-blur-sm lg:px-6">
-        <div className="mx-auto flex w-full max-w-2xl items-end gap-2">
-          <div className="flex flex-1 items-end rounded-xl border bg-muted/30 transition-colors focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/20">
-            <Textarea
+        <div className="mx-auto w-full max-w-2xl">
+          <InputGroup className="rounded-2xl bg-muted/30">
+            <InputGroupTextarea
               ref={textareaRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -744,29 +782,33 @@ export default function ChatPage({
               placeholder={t("inputPlaceholder")}
               rows={1}
               disabled={inputDisabled}
-              className="max-h-[200px] min-h-[44px] resize-none border-0 bg-transparent px-3.5 py-3 text-sm leading-relaxed shadow-none focus-visible:ring-0 dark:bg-transparent"
+              className="min-h-[44px] px-3.5 py-3 text-sm leading-relaxed [field-sizing:fixed]"
             />
-          </div>
-          <Button
-            onClick={() => void send()}
-            disabled={inputDisabled || !input.trim()}
-            size="icon"
-            className="size-[44px] shrink-0 rounded-xl"
-            aria-label={t("sendHint")}
-          >
-            {busy ? (
-              <Loader2Icon className="size-4 animate-spin" />
-            ) : (
-              <SendIcon className="size-4 rtl:rotate-180" />
-            )}
-          </Button>
+            <InputGroupAddon align="block-end" className="gap-2">
+              <InputGroupText className="text-[10px] text-muted-foreground/60">
+                <Kbd>↵</Kbd> {t("sendHint")}
+                <span aria-hidden>·</span>
+                <Kbd>⇧</Kbd>
+                <Kbd>↵</Kbd> {t("newLineHint")}
+              </InputGroupText>
+              <InputGroupButton
+                type="button"
+                variant="default"
+                size="icon-sm"
+                onClick={() => void send()}
+                disabled={inputDisabled || !input.trim()}
+                aria-label={t("sendHint")}
+                className="ms-auto rounded-full"
+              >
+                {busy ? (
+                  <Loader2Icon className="size-4 animate-spin" />
+                ) : (
+                  <SendIcon className="size-4 rtl:rotate-180" />
+                )}
+              </InputGroupButton>
+            </InputGroupAddon>
+          </InputGroup>
         </div>
-        <p className="mx-auto mt-1.5 flex max-w-2xl items-center justify-center gap-1.5 text-[10px] text-muted-foreground/60">
-          <Kbd>↵</Kbd> {t("sendHint")}
-          <span>·</span>
-          <Kbd>⇧</Kbd>
-          <Kbd>↵</Kbd> {t("newLineHint")}
-        </p>
       </div>
     </div>
   )

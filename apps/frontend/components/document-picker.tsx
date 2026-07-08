@@ -9,6 +9,14 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import {
+  Attachment,
+  AttachmentActions,
+  AttachmentContent,
+  AttachmentMedia,
+  AttachmentTitle,
+  AttachmentTrigger,
+} from "@/components/ui/attachment"
 
 interface Props {
   documents: DocumentRead[]
@@ -75,19 +83,38 @@ export function DocumentPicker({ documents, selected, onChange }: Props) {
         </div>
       </div>
       <ScrollArea className="max-h-44">
-        <ul className="divide-y">
+        <ul className="flex flex-col gap-1 p-1">
           {ready.map((doc) => {
             const active = selected.includes(doc.id)
             return (
               <li key={doc.id}>
-                <label className="flex w-full cursor-pointer items-center gap-2.5 px-2.5 py-2 text-start transition-colors hover:bg-accent/50">
-                  <Checkbox
-                    checked={active}
-                    onCheckedChange={() => toggle(doc.id)}
+                <Attachment
+                  size="xs"
+                  state="done"
+                  className="w-full max-w-none border-transparent"
+                >
+                  <AttachmentTrigger
+                    type="button"
+                    onClick={() => toggle(doc.id)}
+                    aria-pressed={active}
+                    aria-label={doc.filename}
                   />
-                  <FileTextIcon className="size-3.5 shrink-0 text-muted-foreground" />
-                  <span className="truncate text-xs">{doc.filename}</span>
-                </label>
+                  <AttachmentMedia>
+                    <FileTextIcon />
+                  </AttachmentMedia>
+                  <AttachmentContent>
+                    <AttachmentTitle className="text-xs font-normal">
+                      {doc.filename}
+                    </AttachmentTitle>
+                  </AttachmentContent>
+                  <AttachmentActions className="pe-1.5">
+                    <Checkbox
+                      checked={active}
+                      onCheckedChange={() => toggle(doc.id)}
+                      aria-label={doc.filename}
+                    />
+                  </AttachmentActions>
+                </Attachment>
               </li>
             )
           })}

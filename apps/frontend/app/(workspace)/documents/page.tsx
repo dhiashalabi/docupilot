@@ -26,9 +26,17 @@ import {
 import type { DocumentRead } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Card } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Attachment,
+  AttachmentAction,
+  AttachmentActions,
+  AttachmentContent,
+  AttachmentDescription,
+  AttachmentMedia,
+  AttachmentTitle,
+} from "@/components/ui/attachment"
 import {
   Empty,
   EmptyDescription,
@@ -121,70 +129,86 @@ function DocumentCard({
   const t = useTranslations("documents")
   const tc = useTranslations("common")
 
-  return (
-    <Card className="flex-row items-center gap-3.5 px-4 py-3 transition-shadow hover:shadow-sm">
-      <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted">
-        <FileTextIcon className="size-5 text-muted-foreground" />
-      </div>
+  const isProcessing =
+    doc.status === "PROCESSING" || doc.status === "PENDING"
+  const isFailed = doc.status === "FAILED"
+  const state: "processing" | "error" | "done" = isFailed
+    ? "error"
+    : isProcessing
+      ? "processing"
+      : "done"
 
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm leading-tight font-medium">
-          {doc.filename}
-        </p>
-        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+  return (
+    <Attachment
+      size="default"
+      state={state}
+      className="w-full max-w-none px-4 py-3 transition-shadow hover:shadow-sm has-data-[slot=attachment-media]:p-3"
+    >
+      <AttachmentMedia className="size-10">
+        {isProcessing ? (
+          <Loader2Icon className="size-5 animate-spin" />
+        ) : (
+          <FileTextIcon className="size-5" />
+        )}
+      </AttachmentMedia>
+
+      <AttachmentContent className="flex-1">
+        <AttachmentTitle>{doc.filename}</AttachmentTitle>
+        <AttachmentDescription>
           <span>{formatSize(doc.size_bytes)}</span>
           {doc.page_count && (
             <>
-              <span className="text-border">·</span>
+              <span className="mx-1 text-border">·</span>
               <span>{tc("pagesCount", { count: doc.page_count })}</span>
             </>
           )}
           {doc.language && (
             <>
-              <span className="text-border">·</span>
+              <span className="mx-1 text-border">·</span>
               <span>{doc.language.toUpperCase()}</span>
             </>
           )}
-          <span className="text-border">·</span>
+          <span className="mx-1 text-border">·</span>
           <span>{formatDate(doc.created_at)}</span>
-        </div>
-        {doc.status === "FAILED" && doc.error && (
-          <p className="mt-1 truncate text-xs text-destructive">{doc.error}</p>
+        </AttachmentDescription>
+        {isFailed && doc.error && (
+          <AttachmentDescription>{doc.error}</AttachmentDescription>
         )}
-        {(doc.status === "PROCESSING" || doc.status === "PENDING") && (
-          <JobProgress documentId={doc.id} />
-        )}
-      </div>
+        {isProcessing && <JobProgress documentId={doc.id} />}
+      </AttachmentContent>
 
-      <StatusBadge status={doc.status} />
-
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-8 shrink-0 text-muted-foreground"
-            aria-label={t("documentActions")}
-          >
-            <MoreVerticalIcon className="size-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-44">
-          <DropdownMenuItem
-            onClick={() => onReingest(doc)}
-            disabled={doc.status === "PROCESSING" || doc.status === "PENDING"}
-          >
-            <RefreshCwIcon className="size-4" />
-            {t("reingest")}
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem variant="destructive" onClick={() => onDelete(doc)}>
-            <Trash2Icon className="size-4" />
-            {tc("delete")}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </Card>
+      <AttachmentActions className="gap-2 pe-2">
+        <StatusBadge status={doc.status} />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <AttachmentAction
+              type="button"
+              aria-label={t("documentActions")}
+              className="size-8"
+            >
+              <MoreVerticalIcon className="size-4" />
+            </AttachmentAction>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuItem
+              onClick={() => onReingest(doc)}
+              disabled={isProcessing}
+            >
+              <RefreshCwIcon className="size-4" />
+              {t("reingest")}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => onDelete(doc)}
+            >
+              <Trash2Icon className="size-4" />
+              {tc("delete")}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </AttachmentActions>
+    </Attachment>
   )
 }
 
@@ -340,14 +364,22 @@ export default function DocumentsPage() {
       {isPending && !data ? (
         <div className="grid gap-2">
           {[0, 1, 2].map((i) => (
-            <Card key={i} className="flex-row items-center gap-3.5 px-4 py-3">
-              <Skeleton className="size-10 shrink-0 rounded-lg" />
-              <div className="flex-1 space-y-2">
+            <Attachment
+              key={i}
+              size="default"
+              className="w-full max-w-none px-4 py-3"
+            >
+              <AttachmentMedia className="size-10">
+                <Skeleton className="size-full rounded-lg" />
+              </AttachmentMedia>
+              <AttachmentContent className="flex-1 space-y-2">
                 <Skeleton className="h-4 w-1/3" />
                 <Skeleton className="h-3 w-1/2" />
-              </div>
-              <Skeleton className="h-6 w-20 rounded-full" />
-            </Card>
+              </AttachmentContent>
+              <AttachmentActions className="pe-2">
+                <Skeleton className="h-6 w-20 rounded-full" />
+              </AttachmentActions>
+            </Attachment>
           ))}
         </div>
       ) : isError ? (

@@ -34,6 +34,12 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty"
+import {
+  Attachment,
+  AttachmentContent,
+  AttachmentMedia,
+  AttachmentTitle,
+} from "@/components/ui/attachment"
 import { PageHeader } from "@/components/page-header"
 import { cn } from "@/lib/utils"
 
@@ -231,12 +237,18 @@ export default function SearchPage() {
                 className="gap-2 p-4 transition-shadow hover:shadow-sm"
               >
                 <div className="flex items-center gap-2">
-                  <div className="flex size-7 items-center justify-center rounded-md bg-muted">
-                    <FileTextIcon className="size-3.5 text-muted-foreground" />
-                  </div>
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                    {hit.filename}
-                  </span>
+                  <Attachment
+                    size="xs"
+                    state="done"
+                    className="min-w-0 flex-1 border-transparent bg-transparent"
+                  >
+                    <AttachmentMedia>
+                      <FileTextIcon />
+                    </AttachmentMedia>
+                    <AttachmentContent>
+                      <AttachmentTitle>{hit.filename}</AttachmentTitle>
+                    </AttachmentContent>
+                  </Attachment>
                   {hit.page_from && (
                     <Badge
                       variant="outline"
