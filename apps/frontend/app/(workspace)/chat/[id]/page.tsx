@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { use } from "react"
+import Link from "next/link"
 import { toast } from "sonner"
 import { useTranslations } from "next-intl"
 import { useQueryClient } from "@tanstack/react-query"
@@ -24,6 +25,7 @@ import {
 } from "lucide-react"
 
 import { streamMessage } from "@/lib/api"
+import { ApiError } from "@/lib/api"
 import { displayChatTitle } from "@/lib/chat-title"
 import {
   useChat,
@@ -274,7 +276,10 @@ function ChatMessage({
         </Bubble>
         {citations ? <CitationList citations={citations} /> : null}
         {interrupted && (
-          <Marker variant="separator" className="text-[11px] text-amber-600 dark:text-amber-400">
+          <Marker
+            variant="separator"
+            className="text-[11px] text-amber-600 dark:text-amber-400"
+          >
             <MarkerIcon>
               <AlertTriangleIcon />
             </MarkerIcon>
@@ -343,7 +348,11 @@ export default function ChatPage({
   const te = useTranslations("errors")
 
   const queryClient = useQueryClient()
-  const { data: chatData, isError: chatError } = useChat(id)
+  const {
+    data: chatData,
+    isError: chatError,
+    error: chatFetchError,
+  } = useChat(id)
   const {
     data: messagesData,
     isPending: messagesLoading,
@@ -548,6 +557,32 @@ export default function ChatPage({
   const inputDisabled = busy || !llmReady
   const initialLoading = messagesLoading && !messagesData
   const hasMessages = (messagesData?.length ?? 0) > 0 || streaming
+
+  // Full-page "not found" state for a deleted or invalid chat id.
+  // Rendered before the main layout so we don't half-render a broken chat
+  // page (with a Retry button that can never succeed).
+  const chatNotFound =
+    chatError &&
+    chatFetchError instanceof ApiError &&
+    chatFetchError.status === 404
+  if (chatNotFound) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-4">
+        <Empty className="max-w-md border-none">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <AlertCircleIcon className="text-muted-foreground" />
+            </EmptyMedia>
+            <EmptyTitle>{te("chatNotFound")}</EmptyTitle>
+            <EmptyDescription>{te("chatNotFoundDescription")}</EmptyDescription>
+          </EmptyHeader>
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/">{te("backToChats")}</Link>
+          </Button>
+        </Empty>
+      </div>
+    )
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -773,7 +808,7 @@ export default function ChatPage({
               placeholder={t("inputPlaceholder")}
               rows={1}
               disabled={inputDisabled}
-              className="min-h-[calc(1lh+1.5rem)] max-h-[calc(5lh+1.5rem)] overflow-y-auto px-3.5 py-3 text-sm leading-relaxed"
+              className="max-h-[calc(5lh+1.5rem)] min-h-[calc(1lh+1.5rem)] overflow-y-auto px-3.5 py-3 text-sm leading-relaxed"
             />
             <InputGroupAddon align="block-end" className="gap-2">
               <InputGroupText className="text-[10px] text-muted-foreground/60">

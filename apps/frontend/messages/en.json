@@ -59,7 +59,10 @@
     "notPdf": "{filename} is not a PDF",
     "renameChatFailed": "Could not rename chat",
     "updateFailed": "Update failed",
-    "loadFailed": "Couldn't load content"
+    "loadFailed": "Couldn't load content",
+    "chatNotFound": "Chat not found",
+    "chatNotFoundDescription": "This chat has been deleted or the link is incorrect.",
+    "backToChats": "Back to chats"
   },
   "toasts": {
     "uploaded": "Uploaded {filename}",

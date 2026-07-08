@@ -59,7 +59,10 @@
     "notPdf": "{filename} ليس ملف PDF",
     "renameChatFailed": "تعذرت إعادة تسمية المحادثة",
     "updateFailed": "فشل التحديث",
-    "loadFailed": "تعذر تحميل المحتوى"
+    "loadFailed": "تعذر تحميل المحتوى",
+    "chatNotFound": "المحادثة غير موجودة",
+    "chatNotFoundDescription": "تم حذف هذه المحادثة أو أن الرابط غير صحيح.",
+    "backToChats": "العودة إلى المحادثات"
   },
   "toasts": {
     "uploaded": "تم رفع {filename}",
