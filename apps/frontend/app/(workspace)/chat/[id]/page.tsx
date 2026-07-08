@@ -396,28 +396,6 @@ export default function ChatPage({
     scrollToBottom()
   }, [messagesData, streaming, scrollToBottom])
 
-  /* ---- textarea auto-resize (cap at 5 rows, then internal scroll) ---- */
-  const adjustTextarea = React.useCallback(() => {
-    const el = textareaRef.current
-    if (!el) return
-    const cs = window.getComputedStyle(el)
-    const lineHeight = parseFloat(cs.lineHeight) || 20
-    const paddingY =
-      (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0)
-    const borderY =
-      (parseFloat(cs.borderTopWidth) || 0) +
-      (parseFloat(cs.borderBottomWidth) || 0)
-    const maxHeight = lineHeight * 5 + paddingY + borderY
-    el.style.height = "auto"
-    const next = Math.min(el.scrollHeight, maxHeight)
-    el.style.height = `${next}px`
-    el.style.overflowY = el.scrollHeight > maxHeight ? "auto" : "hidden"
-  }, [])
-
-  React.useEffect(() => {
-    adjustTextarea()
-  }, [input, adjustTextarea])
-
   /* ---- attach existing documents ---- */
   const saveAttach = async () => {
     try {
@@ -782,7 +760,7 @@ export default function ChatPage({
               placeholder={t("inputPlaceholder")}
               rows={1}
               disabled={inputDisabled}
-              className="min-h-[44px] px-3.5 py-3 text-sm leading-relaxed [field-sizing:fixed]"
+              className="min-h-[calc(1lh+1.5rem)] max-h-[calc(5lh+1.5rem)] overflow-y-auto px-3.5 py-3 text-sm leading-relaxed"
             />
             <InputGroupAddon align="block-end" className="gap-2">
               <InputGroupText className="text-[10px] text-muted-foreground/60">
