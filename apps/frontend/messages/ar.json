@@ -104,7 +104,8 @@
     "renameChat": "إعادة تسمية المحادثة",
     "renameChatDescription": "أدخل اسمًا جديدًا لهذه المحادثة.",
     "chatTitlePlaceholder": "عنوان المحادثة",
-    "renameChatSuccess": "تمت إعادة تسمية المحادثة"
+    "renameChatSuccess": "تمت إعادة تسمية المحادثة",
+    "replyInterrupted": "تم إيقاف الرد"
   },
   "search": {
     "title": "بحث",

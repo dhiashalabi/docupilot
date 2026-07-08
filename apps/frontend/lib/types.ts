@@ -13,6 +13,8 @@ export interface DocumentRead {
   status: DocumentStatus
   error: string | null
   created_at: string
+  updated_at?: string | null
+  content_hash?: string | null
 }
 
 export interface ProcessingJob {
@@ -49,6 +51,7 @@ export interface MessageRead {
   content: string
   language: string | null
   citations: Citation[]
+  meta?: { interrupted?: boolean; [key: string]: unknown } | null
   created_at: string
 }
 

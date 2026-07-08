@@ -8,16 +8,22 @@ Pipeline (sync, runs in the worker container):
   5. Embed chunks with BGE-M3 (in-process), batched to limit peak memory.
   6. Persist chunks + vectors.
   7. Mark document READY (or FAILED with error).
+
+A periodic sweeper (:func:`reap_stuck_jobs`) marks any PROCESSING job that
+hasn't finished within ``settings.ingest_stuck_after_seconds`` as FAILED so
+worker crashes never leave documents permanently pending.
 """
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from sqlalchemy import select
+from sqlalchemy.exc import OperationalError
 
 from app.ai.language import detect_language
+from app.config import settings
 from app.db.session import SyncSessionLocal
 from app.domain.models import (
     STATUS_FAILED,
@@ -49,7 +55,15 @@ def _latest_job(session, document_id):
     ).first()
 
 
-@celery_app.task(name="ingest_document", bind=True)
+@celery_app.task(
+    name="ingest_document",
+    bind=True,
+    autoretry_for=(OperationalError, TimeoutError, ConnectionError),
+    retry_backoff=2,
+    retry_backoff_max=60,
+    retry_jitter=True,
+    retry_kwargs={"max_retries": 3},
+)
 def ingest_document(self, document_id: str) -> dict:
     """Parse, chunk, embed and store a document."""
     session = SyncSessionLocal()
@@ -80,6 +94,15 @@ def ingest_document(self, document_id: str) -> dict:
             raise FileNotFoundError(f"Source PDF not found: {path}")
 
         parsed = parser.parse_pdf(path)
+        # Enforce the page-count cap before spending disk + compute on chunks.
+        if (
+            settings.max_document_pages
+            and parsed.page_count
+            and parsed.page_count > settings.max_document_pages
+        ):
+            raise ValueError(
+                f"Document has {parsed.page_count} pages; limit is {settings.max_document_pages}"
+            )
         document.page_count = parsed.page_count
         document.language = detect_language(parsed.markdown)
         if job:
@@ -140,5 +163,41 @@ def ingest_document(self, document_id: str) -> dict:
             job.finished_at = datetime.now(UTC)
         session.commit()
         raise
+    finally:
+        session.close()
+
+
+@celery_app.task(name="reap_stuck_jobs")
+def reap_stuck_jobs() -> dict:
+    """Mark PROCESSING jobs older than the configured cutoff as FAILED.
+
+    Guards against worker crashes leaving documents stuck in PROCESSING
+    forever. Also flips the parent Document status so the UI shimmer stops.
+    Idempotent: only touches rows still in PROCESSING.
+    """
+    cutoff = datetime.now(UTC) - timedelta(seconds=settings.ingest_stuck_after_seconds)
+    reaped = 0
+    session = SyncSessionLocal()
+    try:
+        stuck = session.scalars(
+            select(ProcessingJob).where(
+                ProcessingJob.status == STATUS_PROCESSING,
+                ProcessingJob.started_at.is_not(None),
+                ProcessingJob.started_at < cutoff,
+            )
+        ).all()
+        for job in stuck:
+            job.status = STATUS_FAILED
+            job.error = "Worker did not finish within the allowed time"
+            job.finished_at = datetime.now(UTC)
+            doc = session.get(Document, job.document_id)
+            if doc is not None and doc.status == STATUS_PROCESSING:
+                doc.status = STATUS_FAILED
+                doc.error = "Ingestion timed out"
+            reaped += 1
+        if reaped:
+            session.commit()
+            logger.warning("reap_stuck_jobs", count=reaped)
+        return {"reaped": reaped}
     finally:
         session.close()

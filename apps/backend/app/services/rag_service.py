@@ -35,11 +35,25 @@ async def _history(
     chat_id: uuid.UUID,
     exclude_id: uuid.UUID | None = None,
 ) -> list[dict[str, str]]:
-    stmt = select(Message).where(Message.chat_id == chat_id).order_by(Message.created_at)
+    """Return the most recent history turns, capped at ``max_history_summary_messages``.
+
+    Fetches the newest N rows in DESC order then reverses in Python so that
+    very long chats don't scan the full message table on every turn.
+    """
+    cap = max(
+        settings.max_history_messages,
+        settings.max_history_summary_messages,
+    )
+    stmt = (
+        select(Message)
+        .where(Message.chat_id == chat_id)
+        .order_by(Message.created_at.desc())
+        .limit(cap)
+    )
     if exclude_id is not None:
         stmt = stmt.where(Message.id != exclude_id)
     rows = await session.scalars(stmt)
-    msgs = list(rows)
+    msgs = list(reversed(list(rows)))
     return [{"role": m.role, "content": m.content} for m in msgs]
 
 
@@ -51,17 +65,19 @@ async def _build_context(
 ):
     """Embed the question, retrieve chunks and prepare prompt messages."""
     doc_ids = await _chat_document_ids(session, chat)
-    # When a chat has no linked documents skip retrieval entirely; build_chat_messages
-    # will surface "(no relevant excerpts found)" so the LLM still gets a valid prompt.
-    if doc_ids:
-        query_vec = await asyncio.to_thread(embedder.embed_query, question)
-        chunks = await retriever.retrieve(
-            session, query_vec, document_ids=doc_ids, query_text=question
-        )
-        passages = context_assembler.to_passages(chunks)
-    else:
-        chunks = []
-        passages = []
+    # When the chat has linked documents we scope retrieval to them; otherwise
+    # we search the entire corpus so global-scope chats (the UI's "Answering
+    # from all documents" state) actually behave that way. If the corpus is
+    # empty the retriever returns [] and build_chat_messages surfaces
+    # "(no relevant excerpts found)".
+    query_vec = await asyncio.to_thread(embedder.embed_query, question)
+    chunks = await retriever.retrieve(
+        session,
+        query_vec,
+        document_ids=doc_ids or None,
+        query_text=question,
+    )
+    passages = context_assembler.to_passages(chunks)
 
     # Exclude the just-committed user message so the question is not sent twice
     # (build_chat_messages already appends the question as the final user turn).
@@ -95,6 +111,10 @@ async def answer_stream(session: AsyncSession, chat: Chat, question: str) -> Asy
     Yields dict events: {"type": "token", "text": ...} during generation and a
     final {"type": "done", "message_id": ..., "citations": [...]} event after the
     user + assistant messages and citations have been persisted.
+
+    If the client disconnects mid-stream, the accumulated partial reply is
+    persisted with ``meta={"interrupted": true}`` before the cancellation
+    propagates, so we never silently lose an assistant turn.
     """
     lang = detect_language(question)
     user_msg = Message(chat_id=chat.id, role="user", content=question, language=lang)
@@ -106,17 +126,68 @@ async def answer_stream(session: AsyncSession, chat: Chat, question: str) -> Asy
     # disconnects or the LLM call fails mid-stream.
     await session.commit()
 
-    messages, chunks = await _build_context(
-        session, chat, question, exclude_message_id=user_msg.id
-    )
+    messages, chunks = await _build_context(session, chat, question, exclude_message_id=user_msg.id)
 
     buffer: list[str] = []
-    async for token in vllm_client.stream(messages):
-        buffer.append(token)
-        yield {"type": "token", "text": token}
+    interrupted = False
+    try:
+        async for token in vllm_client.stream(messages):
+            buffer.append(token)
+            yield {"type": "token", "text": token}
+    except asyncio.CancelledError:
+        interrupted = True
+        # Persist the partial reply outside the cancellation window so it
+        # survives even when the client disconnects mid-generation. We shield
+        # the DB writes so the CancelledError can't tear them down.
+        await asyncio.shield(
+            _persist_assistant_reply(
+                session,
+                chat=chat,
+                lang=lang,
+                answer="".join(buffer),
+                chunks=chunks,
+                interrupted=True,
+            )
+        )
+        raise
+    finally:
+        # If we didn't cancel and no exception fired, the happy-path below
+        # handles persistence. If some *other* exception fired, do nothing —
+        # the outer error handler will rollback.
+        pass
 
-    answer = "".join(buffer)
-    assistant_msg = Message(chat_id=chat.id, role="assistant", content=answer, language=lang)
+    if interrupted:  # unreachable: cancellation re-raises above
+        return
+
+    result = await _persist_assistant_reply(
+        session,
+        chat=chat,
+        lang=lang,
+        answer="".join(buffer),
+        chunks=chunks,
+        interrupted=False,
+    )
+    yield {
+        "type": "done",
+        "message_id": result["message_id"],
+        "citations": result["citations"],
+    }
+
+
+async def _persist_assistant_reply(
+    session: AsyncSession,
+    *,
+    chat: Chat,
+    lang: str | None,
+    answer: str,
+    chunks: list,
+    interrupted: bool,
+) -> dict:
+    """Persist the assistant message + citations. Returns the payload for `done`."""
+    meta = {"interrupted": True} if interrupted else None
+    assistant_msg = Message(
+        chat_id=chat.id, role="assistant", content=answer, language=lang, meta=meta
+    )
     session.add(assistant_msg)
     # Bump the parent chat so chat lists order by most-recent activity.
     chat.updated_at = datetime.now(UTC)
@@ -162,8 +233,4 @@ async def answer_stream(session: AsyncSession, chat: Chat, question: str) -> Asy
     # Commit assistant message + citations immediately so they are durable even
     # if the client disconnects before the outer commit in messages.py runs.
     await session.commit()
-    yield {
-        "type": "done",
-        "message_id": str(assistant_msg.id),
-        "citations": citations_out,
-    }
+    return {"message_id": str(assistant_msg.id), "citations": citations_out}

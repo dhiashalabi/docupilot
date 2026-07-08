@@ -59,6 +59,19 @@ class Settings(BaseSettings):
 
     # --- Uploads ---
     max_upload_mb: int = 50
+    # Hard limit on parsed PDF page count. Documents above this fail ingest
+    # with a clear error rather than exhausting worker memory.
+    max_document_pages: int = 2000
+
+    # --- Streaming ---
+    # SSE keep-alive interval (seconds). Prevents intermediary proxies from
+    # dropping long-lived streams during slow LLM generation.
+    sse_keepalive_seconds: float = 15.0
+
+    # --- Ingestion ---
+    # Jobs stuck in PROCESSING longer than this are reaped and marked FAILED
+    # by the periodic sweeper (see workers/tasks.reap_stuck_jobs).
+    ingest_stuck_after_seconds: int = 900
 
     # --- vLLM (OpenAI-compatible local LLM server) ---
     vllm_base_url: str = Field(default="http://localhost:8001/v1")
@@ -90,6 +103,9 @@ class Settings(BaseSettings):
     chunk_overlap_chars: int = 200
     retrieval_top_k: int = 8
     max_history_messages: int = 10
+    # Hard cap on history rows loaded per turn (recent + summarised context).
+    # Prevents unbounded O(N) fetches on very long conversations.
+    max_history_summary_messages: int = 50
     # pgvector HNSW search breadth; higher = better recall, slower. None = leave
     # the server default.
     hnsw_ef_search: int | None = 64

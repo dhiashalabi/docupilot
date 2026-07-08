@@ -21,6 +21,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text as sa_text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -43,11 +44,23 @@ class Document(Base):
     """An uploaded PDF and its processing state."""
 
     __tablename__ = "documents"
+    __table_args__ = (
+        # Partial unique index enforces one row per content hash, but only for
+        # rows where the hash has been backfilled (existing rows may be NULL).
+        Index(
+            "uq_documents_content_hash",
+            "content_hash",
+            unique=True,
+            postgresql_where=sa_text("content_hash IS NOT NULL"),
+        ),
+    )
 
     id: Mapped[uuid.UUID] = _uuid_pk()
     filename: Mapped[str] = mapped_column(String(512), nullable=False)
     storage_key: Mapped[str] = mapped_column(String(512), nullable=False)
     size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    # SHA-256 of the original bytes; used for upload deduplication.
+    content_hash: Mapped[str | None] = mapped_column(String(64), index=True)
     page_count: Mapped[int | None] = mapped_column(Integer)
     language: Mapped[str | None] = mapped_column(String(8))
     # PENDING | PROCESSING | READY | FAILED
@@ -57,6 +70,13 @@ class Document(Base):
     error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+        index=True,
     )
 
     chunks: Mapped[list[DocumentChunk]] = relationship(
@@ -97,9 +117,7 @@ class DocumentChunk(Base):
     token_count: Mapped[int | None] = mapped_column(Integer)
     embedding: Mapped[list[float] | None] = mapped_column(Vector(settings.embedding_dim))
     meta: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     document: Mapped[Document] = relationship(back_populates="chunks")
 
@@ -111,9 +129,7 @@ class Chat(Base):
 
     id: Mapped[uuid.UUID] = _uuid_pk()
     title: Mapped[str | None] = mapped_column(String(255))
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), index=True
     )
@@ -161,9 +177,10 @@ class Message(Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     language: Mapped[str | None] = mapped_column(String(8))
     token_count: Mapped[int | None] = mapped_column(Integer)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    # Arbitrary per-message flags (e.g. {"interrupted": true} when a stream was
+    # cancelled mid-generation). Nullable so existing rows remain untouched.
+    meta: Mapped[dict | None] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     chat: Mapped[Chat] = relationship(back_populates="messages")
     citations: Mapped[list[MessageCitation]] = relationship(
@@ -214,9 +231,7 @@ class GeneratedPdf(Base):
         String(16), default=STATUS_PENDING, nullable=False, index=True
     )
     error: Mapped[str | None] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class ProcessingJob(Base):
@@ -241,8 +256,6 @@ class ProcessingJob(Base):
     error: Mapped[str | None] = mapped_column(Text)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     document: Mapped[Document] = relationship(back_populates="jobs")

@@ -104,7 +104,8 @@
     "processingDoc": "Processing…",
     "detachDocument": "Detach",
     "attachedUploaded": "Uploaded and attached {filename}",
-    "attachSaved": "Document scope updated"
+    "attachSaved": "Document scope updated",
+    "replyInterrupted": "Reply was interrupted"
   },
   "search": {
     "title": "Search",

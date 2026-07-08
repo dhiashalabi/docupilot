@@ -19,6 +19,8 @@ class DocumentRead(BaseModel):
     status: str
     error: str | None
     created_at: datetime
+    updated_at: datetime | None = None
+    content_hash: str | None = None
 
 
 class ProcessingJobRead(BaseModel):
@@ -71,6 +73,7 @@ class MessageRead(BaseModel):
     content: str
     language: str | None = None
     citations: list[Citation] = Field(default_factory=list)
+    meta: dict | None = None
     created_at: datetime
 
 
@@ -110,4 +113,3 @@ class GeneratedPdfRead(BaseModel):
     status: str
     error: str | None
     created_at: datetime
-

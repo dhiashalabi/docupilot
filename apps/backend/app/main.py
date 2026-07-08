@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 from app.api.v1 import api_router
 from app.config import settings
 from app.core.exceptions import AppError
+from app.core.middleware import RequestIdMiddleware
 from app.logging import configure_logging, get_logger
 
 logger = get_logger(__name__)
@@ -48,6 +49,10 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    # Register RequestIdMiddleware AFTER CORSMiddleware so that at request
+    # time it runs first (Starlette wraps middleware in reverse registration
+    # order): request-id binds context → CORS handles the request → app runs.
+    app.add_middleware(RequestIdMiddleware)
 
     @app.exception_handler(AppError)
     async def app_error_handler(_: Request, exc: AppError) -> JSONResponse:

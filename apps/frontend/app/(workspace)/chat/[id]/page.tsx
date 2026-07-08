@@ -19,6 +19,7 @@ import {
   CopyIcon,
   CheckIcon,
   AlertCircleIcon,
+  AlertTriangleIcon,
   RefreshCwIcon,
 } from "lucide-react"
 
@@ -194,14 +195,17 @@ function ChatMessage({
   citations,
   language,
   isLoading,
+  interrupted,
 }: {
   role: "user" | "assistant"
   children: React.ReactNode
   citations?: MessageRead["citations"] | StreamingState["citations"]
   language?: string | null
   isLoading?: boolean
+  interrupted?: boolean
 }) {
   const isUser = role === "user"
+  const t = useTranslations("chat")
   const te = useTranslations("errors")
   const [copied, setCopied] = React.useState(false)
 
@@ -269,6 +273,14 @@ function ChatMessage({
           </BubbleContent>
         </Bubble>
         {citations ? <CitationList citations={citations} /> : null}
+        {interrupted && (
+          <Marker variant="separator" className="text-[11px] text-amber-600 dark:text-amber-400">
+            <MarkerIcon>
+              <AlertTriangleIcon />
+            </MarkerIcon>
+            <MarkerContent>{t("replyInterrupted")}</MarkerContent>
+          </Marker>
+        )}
         {!isLoading && (
           <MessageFooter
             className={cn(
@@ -724,6 +736,7 @@ export default function ChatPage({
                   role={m.role}
                   language={m.language}
                   citations={m.citations}
+                  interrupted={Boolean(m.meta?.interrupted)}
                 >
                   {m.content}
                 </ChatMessage>

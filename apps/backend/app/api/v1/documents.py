@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 
-from fastapi import APIRouter, UploadFile
+from fastapi import APIRouter, Query, UploadFile
 
 from app.deps import SessionDep
 from app.schemas import DocumentRead, ProcessingJobRead
@@ -16,20 +17,25 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 
 @router.post("", response_model=DocumentRead, status_code=201)
 async def upload_document(file: UploadFile, session: SessionDep) -> DocumentRead:
-    data = await file.read()
-    document = await document_service.create_document(
-        session, file.filename or "document.pdf", file.content_type, data
+    document = await document_service.create_document_from_stream(
+        session, file.filename, file.content_type, file.file
     )
     await session.flush()
     doc_id = str(document.id)
-    # Hand off heavy parsing/embedding to the worker.
-    celery_app.send_task("ingest_document", args=[doc_id])
+    # Hand off heavy parsing/embedding to the worker. Skip re-queuing if the
+    # dedup path returned an already-processed document.
+    if document.status == "PENDING":
+        celery_app.send_task("ingest_document", args=[doc_id])
     return DocumentRead.model_validate(document)
 
 
 @router.get("", response_model=list[DocumentRead])
-async def list_documents(session: SessionDep) -> list[DocumentRead]:
-    docs = await document_service.list_documents(session)
+async def list_documents(
+    session: SessionDep,
+    limit: int | None = Query(default=None, ge=1, le=200),
+    before: datetime | None = Query(default=None),
+) -> list[DocumentRead]:
+    docs = await document_service.list_documents(session, limit=limit, before=before)
     return [DocumentRead.model_validate(d) for d in docs]
 
 
@@ -58,4 +64,3 @@ async def reingest_document(document_id: uuid.UUID, session: SessionDep) -> Docu
 @router.delete("/{document_id}", status_code=204)
 async def delete_document(document_id: uuid.UUID, session: SessionDep) -> None:
     await document_service.delete_document(session, document_id)
-

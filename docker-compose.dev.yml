@@ -135,6 +135,23 @@ services:
       redis:
         condition: service_healthy
 
+  beat:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.worker
+    command: celery -A app.workers.celery_app.celery_app beat --loglevel=info
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-docupilot}:${POSTGRES_PASSWORD:-docupilot}@db:5432/${POSTGRES_DB:-docupilot}
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      STORAGE_PATH: /data/storage
+      HF_HOME: /models
+    volumes:
+      - ./apps/backend:/app/apps/backend
+    depends_on:
+      redis:
+        condition: service_healthy
+
 volumes:
   pg_data:
   hf_cache:

@@ -25,4 +25,12 @@ celery_app.conf.update(
     task_track_started=True,
     worker_prefetch_multiplier=1,  # heavy tasks: one at a time per worker process
     task_acks_late=True,
+    # Periodic sweeper for stuck ingestion jobs. Run every 5 minutes; the task
+    # itself is idempotent and cheap when there is nothing to do.
+    beat_schedule={
+        "reap-stuck-jobs": {
+            "task": "reap_stuck_jobs",
+            "schedule": 300.0,
+        },
+    },
 )

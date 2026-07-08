@@ -62,13 +62,22 @@ async def _check_worker() -> bool:
 
 
 async def _check_model() -> bool:
+    """Return True only if the configured LLM is loaded on the vLLM server."""
     url = f"{settings.vllm_base_url.rstrip('/')}/models"
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.get(
                 url, headers={"Authorization": f"Bearer {settings.vllm_api_key}"}
             )
-        return resp.status_code == 200
+        if resp.status_code != 200:
+            return False
+        try:
+            data = resp.json()
+        except ValueError:
+            return False
+        loaded = {m.get("id") for m in (data.get("data") or []) if isinstance(m, dict)}
+        # Empty response should be treated as "not ready" rather than "ok".
+        return bool(loaded) and settings.llm_model in loaded
     except Exception:  # noqa: BLE001
         return False
 

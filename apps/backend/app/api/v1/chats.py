@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 
-from fastapi import APIRouter, UploadFile
+from fastapi import APIRouter, Query, UploadFile
 
 from app.deps import SessionDep
 from app.schemas import ChatCreate, ChatRead, ChatUpdate, DocumentRead, MessageRead
@@ -34,8 +35,12 @@ async def create_chat(payload: ChatCreate, session: SessionDep) -> ChatRead:
 
 
 @router.get("", response_model=list[ChatRead])
-async def list_chats(session: SessionDep) -> list[ChatRead]:
-    chats = await chat_service.list_chats(session)
+async def list_chats(
+    session: SessionDep,
+    limit: int | None = Query(default=None, ge=1, le=200),
+    before: datetime | None = Query(default=None),
+) -> list[ChatRead]:
+    chats = await chat_service.list_chats(session, limit=limit, before=before)
     return [_to_read(c) for c in chats]
 
 
@@ -64,20 +69,27 @@ async def upload_document_to_chat(
     """Upload a new PDF and immediately link it to this chat.
 
     The document is processed asynchronously (status starts as PENDING).
-    Poll GET /documents/{id}/job to track ingestion progress.
+    Poll GET /documents/{id}/job to track ingestion progress. If the same
+    PDF (by content hash) has been uploaded before, it is linked to this
+    chat without triggering a duplicate ingestion.
     """
     chat = await chat_service.get_chat(session, chat_id)
-    data = await file.read()
-    document = await document_service.create_document(
-        session, file.filename or "document.pdf", file.content_type, data
+    document = await document_service.create_document_from_stream(
+        session, file.filename, file.content_type, file.file
     )
     await session.flush()
     await chat_service.add_document(session, chat, document.id)
-    celery_app.send_task("ingest_document", args=[str(document.id)])
+    if document.status == "PENDING":
+        celery_app.send_task("ingest_document", args=[str(document.id)])
     return DocumentRead.model_validate(document)
 
 
 @router.get("/{chat_id}/messages", response_model=list[MessageRead])
-async def list_messages(chat_id: uuid.UUID, session: SessionDep) -> list[MessageRead]:
-    messages = await chat_service.list_messages(session, chat_id)
+async def list_messages(
+    chat_id: uuid.UUID,
+    session: SessionDep,
+    limit: int | None = Query(default=None, ge=1, le=500),
+    before: datetime | None = Query(default=None),
+) -> list[MessageRead]:
+    messages = await chat_service.list_messages(session, chat_id, limit=limit, before=before)
     return [MessageRead.model_validate(m) for m in messages]

@@ -63,7 +63,13 @@ async def complete(messages: list[dict[str, str]]) -> str:
 
 
 async def stream(messages: list[dict[str, str]]) -> AsyncIterator[str]:
-    """Yield chat completion content tokens as they arrive."""
+    """Yield chat completion content tokens as they arrive.
+
+    The upstream response is explicitly closed on generator teardown so
+    cancelling the outer consumer (e.g. client disconnect) also aborts the
+    vLLM request instead of relying on garbage collection.
+    """
+    response = None
     try:
         response = await get_client().chat.completions.create(
             model=settings.llm_model,
@@ -80,3 +86,13 @@ async def stream(messages: list[dict[str, str]]) -> AsyncIterator[str]:
     except Exception as exc:  # noqa: BLE001
         logger.error("llm_stream_failed", error=str(exc))
         raise LLMError("Failed to stream a response from the language model") from exc
+    finally:
+        if response is not None:
+            close = getattr(response, "close", None) or getattr(response, "aclose", None)
+            if close is not None:
+                try:
+                    result = close()
+                    if hasattr(result, "__await__"):
+                        await result
+                except Exception:  # noqa: BLE001
+                    pass
