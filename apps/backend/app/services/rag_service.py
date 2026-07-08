@@ -62,6 +62,7 @@ async def _build_context(
     chat: Chat,
     question: str,
     exclude_message_id: uuid.UUID | None = None,
+    language: str | None = None,
 ):
     """Embed the question, retrieve chunks and prepare prompt messages."""
     doc_ids = await _chat_document_ids(session, chat)
@@ -101,6 +102,7 @@ async def _build_context(
         history=recent,
         history_summary=history_summary,
         comparison=comparison,
+        language=language,
     )
     return messages, chunks
 
@@ -126,7 +128,9 @@ async def answer_stream(session: AsyncSession, chat: Chat, question: str) -> Asy
     # disconnects or the LLM call fails mid-stream.
     await session.commit()
 
-    messages, chunks = await _build_context(session, chat, question, exclude_message_id=user_msg.id)
+    messages, chunks = await _build_context(
+        session, chat, question, exclude_message_id=user_msg.id, language=lang
+    )
 
     buffer: list[str] = []
     interrupted = False
