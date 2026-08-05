@@ -5,15 +5,16 @@ project, see the [README](../README.md).
 
 DocuPilot is composed of:
 
-| Component | Tech | Default port |
-| --- | --- | --- |
-| Frontend | Next.js (App Router) | `3000` |
-| Backend API | FastAPI (uvicorn) | `8000` |
-| Worker | Celery | – |
-| Database | PostgreSQL + pgvector | `5432` |
-| Queue / cache | Redis | `6379` |
-| LLM server | vLLM (OpenAI-compatible) | `8001` |
-| Embeddings | BGE-M3 (in-process, no service) | – |
+| Component     | Tech                            | Default port |
+| ------------- | ------------------------------- | ------------ |
+| Frontend      | Next.js (App Router)            | `3000`       |
+| Backend API   | FastAPI (uvicorn)               | `8000`       |
+| Worker        | Celery                          | –            |
+| Beat          | Celery beat (stuck-job reaper)  | –            |
+| Database      | PostgreSQL + pgvector           | `5432`       |
+| Queue / cache | Redis                           | `6379`       |
+| LLM server    | vLLM (OpenAI-compatible)        | `8001`       |
+| Embeddings    | BGE-M3 (in-process, no service) | –            |
 
 > The embedding model (BGE-M3) runs **inside** the backend and worker processes.
 > It has no container of its own and downloads its weights once into the shared
@@ -29,7 +30,8 @@ DocuPilot is composed of:
 - **[pnpm](https://pnpm.io/)** and **Node.js 20+** — for the frontend.
 - A reachable **LLM server** (one of):
   - A remote GPU box running vLLM (recommended for real use), or
-  - [Ollama](https://ollama.com/) running locally (easiest for dev), or
+  - [Ollama](https://ollama.com/) running locally or on a cloud GPU (easiest for
+    hybrid/dev), or
   - The bundled `vllm` container (requires a local NVIDIA GPU + the NVIDIA
     Container Toolkit).
 
@@ -58,8 +60,8 @@ docker compose -f docker-compose.dev.yml up
 ```
 
 This starts Postgres, Redis, vLLM, the backend (hot reload), the frontend (hot
-reload), and the Celery worker. Source is mounted, so edits reload automatically.
-Migrations run on backend startup.
+reload), the Celery worker, and Celery beat. Source is mounted, so edits reload
+automatically. Migrations run on backend startup.
 
 - Frontend: http://localhost:3000
 - API + Swagger docs: http://localhost:8000/docs
@@ -75,6 +77,7 @@ make migrate      # apply migrations
 make makemigration msg="add x"  # autogenerate a migration
 make shell-backend
 make shell-db     # open psql
+make ollama-tunnel  # SSH tunnel to remote Ollama (see below)
 make lint         # ruff + eslint
 make down         # stop
 make clean        # stop and remove volumes
@@ -89,7 +92,7 @@ make clean        # stop and remove volumes
 
 Run only the stateful dependencies (Postgres + Redis) in Docker, and run the
 code you're editing natively for the fastest reload loop. The LLM lives on a
-remote GPU box (or local Ollama).
+remote GPU box (or local / remote Ollama).
 
 ### 1. Start the dependencies
 
@@ -130,7 +133,17 @@ cd apps/backend
 uv run celery -A app.workers.celery_app.celery_app worker --loglevel=info --concurrency=1
 ```
 
-### 5. Run the frontend (terminal 3)
+### 5. Run Celery beat (terminal 3, recommended)
+
+Schedules `reap_stuck_jobs` so ingest jobs stuck in PROCESSING are marked FAILED.
+In the all-in-Docker workflow this runs as the `beat` service automatically.
+
+```bash
+cd apps/backend
+uv run celery -A app.workers.celery_app.celery_app beat --loglevel=info
+```
+
+### 6. Run the frontend (terminal 4)
 
 ```bash
 cd apps/frontend
@@ -138,7 +151,7 @@ pnpm install                     # first run / when deps change
 pnpm dev                         # :3000
 ```
 
-### 6. Connect the LLM (terminal 4)
+### 7. Connect the LLM (terminal 5)
 
 **Remote vLLM via SSH tunnel** (keeps `VLLM_BASE_URL=http://localhost:8001/v1`):
 
@@ -160,6 +173,42 @@ VLLM_BASE_URL=http://localhost:11434/v1
 VLLM_API_KEY=ollama
 LLM_MODEL=qwen3:14b
 ```
+
+**Or remote Ollama (model on a cloud GPU)** — the model lives wherever the Ollama
+engine runs. Install and pull on the server; your laptop only sends prompts over
+the network:
+
+On the cloud server (once):
+
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+ollama pull qwen3:14b
+OLLAMA_HOST=0.0.0.0:11434 ollama serve
+```
+
+On your laptop, use an SSH tunnel (do **not** expose port `11434` to the public
+internet — Ollama has no auth):
+
+```bash
+ssh -N -L 11434:localhost:11434 user@cloud-server
+```
+
+Or, if your setup uses the repo helper:
+
+```bash
+make ollama-tunnel
+```
+
+Then set in `.env`:
+
+```bash
+VLLM_BASE_URL=http://localhost:11434/v1
+VLLM_API_KEY=ollama
+LLM_MODEL=qwen3:14b
+```
+
+You do not need the Ollama CLI or model weights on the laptop. The app speaks the
+OpenAI HTTP API; the tunnel makes the remote engine look local.
 
 > The app starts fine without an LLM — only chat/summary requests fail until one
 > is reachable, and the in-app System Health widget shows **Model (vLLM): Down**.
@@ -209,24 +258,26 @@ cd apps/frontend && pnpm lint
 
 ## Environment variables
 
-`.env.example` documents every variable. The ones that change between the two
-workflows are the host names in `DATABASE_URL`, `CELERY_BROKER_URL`,
-`CELERY_RESULT_BACKEND`, and `VLLM_BASE_URL` (`db`/`redis`/`vllm` inside Docker
-vs. `localhost` on the host). See [Self-hosting the model](../README.md#self-hosting-the-model)
-for choosing `LLM_MODEL` by GPU VRAM.
+`.env.example` documents every operator-facing variable. The ones that change
+between the two workflows are the host names in `DATABASE_URL`,
+`CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`, and `VLLM_BASE_URL`
+(`db`/`redis`/`vllm` inside Docker vs. `localhost` on the host). See
+[Self-hosting the model](../README.md#self-hosting-the-model) for choosing
+`LLM_MODEL` by GPU VRAM, and [apps/backend/README.md](../apps/backend/README.md)
+for backend-only knobs.
 
 ---
 
 ## Troubleshooting
 
-| Symptom | Likely cause / fix |
-| --- | --- |
+| Symptom                                | Likely cause / fix                                                                                                                             |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `connection refused` to Postgres/Redis | Deps not running: `docker compose -f docker-compose.dev.yml up -d db redis`. In hybrid mode, ensure `.env` uses `localhost`, not `db`/`redis`. |
-| System Health shows **Model: Down** | No reachable LLM. Start the SSH tunnel or Ollama, and check `VLLM_BASE_URL`. |
-| System Health shows **Worker: Down** | The Celery worker isn't running (terminal 2). |
-| Uploads stay **Processing / Pending** | Worker not running, or it can't reach the DB/Redis. Check the worker logs. |
-| First chat is very slow | Embedding model or LLM weights still loading. Set `EMBEDDING_WARMUP=true` to preload embeddings at startup. |
-| Frontend can't reach the API (CORS) | Add your origin to `ALLOWED_ORIGINS` and confirm `NEXT_PUBLIC_API_URL`. |
+| System Health shows **Model: Down**    | No reachable LLM. Start the SSH tunnel or Ollama, and check `VLLM_BASE_URL`.                                                                   |
+| System Health shows **Worker: Down**   | The Celery worker isn't running (terminal 2).                                                                                                  |
+| Uploads stay **Processing / Pending**  | Worker not running, or it can't reach the DB/Redis. Check the worker logs. Jobs stuck forever may need beat (`reap_stuck_jobs`).               |
+| First chat is very slow                | Embedding model or LLM weights still loading. Set `EMBEDDING_WARMUP=true` to preload embeddings at startup.                                    |
+| Frontend can't reach the API (CORS)    | Add your origin to `ALLOWED_ORIGINS` and confirm `NEXT_PUBLIC_API_URL`.                                                                        |
 
 ---
 
