@@ -1,7 +1,9 @@
 # Development Guide
 
 How to run DocuPilot locally for development. For a high-level overview of the
-project, see the [README](../README.md).
+project, see the [README](../README.md). For how the system works (services,
+data flows, RAG, backend/frontend), start at
+[ARCHITECTURE.md](ARCHITECTURE.md).
 
 DocuPilot is composed of:
 

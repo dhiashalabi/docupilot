@@ -3,6 +3,12 @@
 FastAPI + SQLAlchemy + Celery + pgvector service that ingests PDFs, embeds
 their chunks, and streams grounded chat answers via SSE.
 
+**See also:** [docs/BACKEND.md](../../docs/BACKEND.md) (modules, API, Celery),
+[docs/ARCHITECTURE.md](../../docs/ARCHITECTURE.md),
+[docs/DATA_FLOWS.md](../../docs/DATA_FLOWS.md),
+[docs/RAG.md](../../docs/RAG.md),
+[docs/DEVELOPMENT.md](../../docs/DEVELOPMENT.md).
+
 ## Configuration
 
 Runtime settings live in [`app/config.py`](app/config.py) and are populated

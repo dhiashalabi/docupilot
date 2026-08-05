@@ -14,6 +14,19 @@ you may point the same `VLLM_BASE_URL` contract at Ollama instead — see
 
 ---
 
+## Documentation
+
+| Doc | Contents |
+| --- | --- |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Services, tools, backend layers, FE↔BE integration |
+| [docs/DATA_FLOWS.md](docs/DATA_FLOWS.md) | Ingest, chat/RAG, search, and generate sequences |
+| [docs/RAG.md](docs/RAG.md) | Chunking, embeddings, pgvector, rerank, citations |
+| [docs/BACKEND.md](docs/BACKEND.md) | Modules, domain model, API catalog, Celery |
+| [docs/FRONTEND.md](docs/FRONTEND.md) | Routes, data layer, feature flows, i18n |
+| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Local Docker / hybrid / Ollama runbook |
+
+---
+
 ## Features
 
 - Upload single or multiple PDFs

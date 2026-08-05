@@ -3,6 +3,10 @@
 Next.js (App Router) UI for DocuPilot — documents, chat with citations, semantic
 search, and PDF generation. Built with TypeScript, Tailwind CSS, and shadcn/ui.
 
+**See also:** [docs/FRONTEND.md](../../docs/FRONTEND.md) (routes, data layer,
+feature flows), [docs/ARCHITECTURE.md](../../docs/ARCHITECTURE.md),
+[docs/DEVELOPMENT.md](../../docs/DEVELOPMENT.md).
+
 ## Run
 
 Prefer the repo root workflows:
